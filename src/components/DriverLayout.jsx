@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import TrialBanner from "@/components/TrialBanner";
 
 const nav = [
   { to: "/driver", label: "Home", icon: Home, end: true },
@@ -57,6 +58,7 @@ export default function DriverLayout() {
         </div>
       </header>
 
+      <TrialBanner compact />
       <main className="flex-1 overflow-y-auto pb-20">
         <div className="mx-auto max-w-md p-4">
           <Outlet context={{ driver }} />

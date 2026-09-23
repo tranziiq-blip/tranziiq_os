@@ -19,7 +19,7 @@ export const COMPANY = {
 
 export const LEGAL = {
   effectiveDate: "24 September 2026",
-  termsVersion: "2026-09-24",
+  termsVersion: "2026-09-24b",
   privacyVersion: "2026-09-23",
   cookieVersion: "2026-09-23",
   regulator: {

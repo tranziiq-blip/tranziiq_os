@@ -16,7 +16,7 @@ const sections = [
           the customer.
         </p>
         <p>
-          A signed quote, order form or pilot agreement may add to these terms.
+          A signed quote, order form or pilot project agreement may add to these terms.
           If it conflicts with these terms, the signed document applies.
         </p>
       </>
@@ -34,9 +34,19 @@ const sections = [
           your plan and add-ons.
         </p>
         <p>
-          <strong>Pilots.</strong> During a pilot the service may still be
-          changing. Features can be added, changed or removed, and pilot scope,
-          duration and pricing are agreed in writing before billing starts.
+          <strong>Free trial.</strong> New accounts get a free trial of 14
+          days. When the trial ends, your account becomes read-only: you can
+          still view and export your records, but you cannot add, change or
+          delete them until you choose a plan. If you do not choose a plan
+          within 90 days after the trial ends, we delete your data, unless a
+          law requires us to keep it.
+        </p>
+        <p>
+          <strong>Pilot projects.</strong> We run a limited number of pilot
+          projects of about three months with operators we invite. Scope,
+          duration, pricing and how pilot data may be used are agreed in writing
+          before the pilot starts. During a trial or pilot the service may still
+          be changing, and features can be added, changed or removed.
         </p>
       </>
     ),

@@ -109,15 +109,15 @@ const FAQS = [
   },
   {
     q: "Can it connect to our vehicle tracking?",
-    a: "Telematics connections are being added provider by provider. Tell us which tracking company you use when you start your pilot and we will confirm what can be connected.",
+    a: "Telematics connections are being added provider by provider. Tell us which tracking company you use when you start your trial and we will confirm what can be connected.",
   },
   {
     q: "Who owns our data?",
     a: "You do. We process your operational and employee data on your behalf under the Protection of Personal Information Act, and you can export it at any time. Our privacy policy explains the details.",
   },
   {
-    q: "How does a pilot work?",
-    a: "Create an account, choose your type of operation, and we set up your fleet with you. Pilot scope, duration and pricing are agreed in writing with each operator before any billing starts.",
+    q: "How does the free trial work?",
+    a: "Sign up and you get 14 days of full access, with no card needed. A countdown in the app shows how long is left. When the trial ends your records are kept safe and read-only, so nothing is lost, and you can carry on by choosing a plan. We also run a limited number of three-month pilot projects with selected operators by invitation.",
   },
   {
     q: "Do I have to sign a long contract?",
@@ -332,7 +332,7 @@ function PriceCalculator({ trucks, setTrucks }) {
             </div>
             <p className="site-body" style={{ marginTop: 10 }}>
               Fleets of 51 vehicles or more are priced per operation, including
-              integrations and service levels. Start a pilot and we will send a
+              integrations and service levels. Start a free trial and we will send a
               written quote.
             </p>
           </>
@@ -362,7 +362,7 @@ export default function Landing() {
             </p>
             <div className="hero__ctas">
               <Link to="/register" className="btn btn-primary">
-                Start a pilot
+                Start 14-day free trial
               </Link>
               <a href="#how-it-works" className="btn btn-ghost">
                 See how it works
@@ -643,16 +643,21 @@ export default function Landing() {
         <div className="site-wrap pilot">
           <div>
             <h2 id="pilot-title" className="site-h2">
-              Run a pilot on your own fleet
+              Try it free for 14 days on your own fleet
             </h2>
             <p className="site-lead" style={{ marginTop: 16 }}>
-              Create an account, pick your type of operation, and we will set up
-              your vehicles and drivers with you.
+              Full access to your plan from day one, no card needed. Create an
+              account, pick your type of operation, and we will help you set up
+              your vehicles and drivers.
+            </p>
+            <p className="site-body" style={{ marginTop: 12 }}>
+              We also run a small number of three-month pilot projects with
+              selected operators. <a href="mailto:tranziiq@gmail.com?subject=Pilot%20project">Ask us about a pilot project</a>.
             </p>
           </div>
           <div className="hero__ctas" style={{ marginTop: 0 }}>
             <Link to="/register" className="btn btn-primary">
-              Start a pilot
+              Start 14-day free trial
             </Link>
             <Link to="/login" className="btn btn-ghost">
               Sign in

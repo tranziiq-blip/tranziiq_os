@@ -18,6 +18,7 @@
 //
 import { createClient } from "@supabase/supabase-js";
 import { safeFileName, syncFileAuth } from "@/lib/secureFiles";
+import { compressImage } from "@/lib/imageCompress";
 
 // Keep only "https://<ref>.supabase.co". A URL pasted with a path such as
 // "/rest/v1/" makes every sign-up fail with "Invalid path specified in request URL".
@@ -268,7 +269,16 @@ const auth = {
       .select("*")
       .eq("id", user.id)
       .maybeSingle();
-    return { ...user, ...(profile || {}) };
+    let organization = null;
+    if (profile?.org_id) {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("*")
+        .eq("id", profile.org_id)
+        .maybeSingle();
+      organization = org || null;
+    }
+    return { ...user, ...(profile || {}), organization };
   },
 
   async isAuthenticated() {
@@ -382,7 +392,8 @@ const integrations = {
   Core: {
     // Files go into the company's own folder of a private bucket. The
     // returned link only opens for signed-in users of the same company.
-    async UploadFile({ file }) {
+    async UploadFile({ file: original }) {
+      const file = await compressImage(original);
       const orgId = await currentOrgId();
       const path = `${orgId}/${crypto.randomUUID()}-${safeFileName(file?.name)}`;
       const { error } = await supabase.storage

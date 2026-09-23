@@ -31,6 +31,7 @@ import {
   Flame,
 } from "lucide-react";
 import { userHasAccess } from "@/lib/moduleAccess";
+import TrialBanner from "@/components/TrialBanner";
 
 const ACTIVE = [
   { to: "/", label: "Command Center", icon: LayoutDashboard, end: true },
@@ -257,6 +258,7 @@ transition-all ${
             </span>
           </div>
         </header>
+        <TrialBanner />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-7xl p-4 lg:p-8">
             <Outlet />

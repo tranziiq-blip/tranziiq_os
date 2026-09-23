@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { PLAN_THRESHOLDS, getPlanForTruckCount } from "@/lib/operationTypes";
 import { TERMS, termById, termPrice } from "@/lib/siteConfig";
+import { useAuth } from "@/lib/AuthContext";
+import { accessStatus } from "@/lib/accessStatus";
 
 const PLANS = [
   {
@@ -134,6 +136,7 @@ const ALL_ADDONS = [...FEATURE_ADDONS, ...COMPLIANCE_ADDONS];
 
 export default function BillingTab() {
   const { toast } = useToast();
+  const { user: authUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [fleetSize, setFleetSize] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -166,7 +169,13 @@ export default function BillingTab() {
   }, []);
 
   const currentPlan = profile?.billing_plan || "free";
-  const billingStatus = profile?.billing_status || "trialing";
+  const access = accessStatus(authUser?.organization);
+  const billingStatus =
+    access.kind === "trial"
+      ? access.expired ? "trial ended" : `trial · ${access.daysLeft} day${access.daysLeft === 1 ? "" : "s"} left`
+      : access.kind === "pilot"
+        ? access.expired ? "pilot ended" : `pilot · ${access.daysLeft} days left`
+        : access.kind === "internal" ? "internal" : access.kind === "active" ? "active" : profile?.billing_status || "trial";
   const recommendedPlan = getPlanForTruckCount(truckCount);
   const calcMonthly = (price) => price * truckCount;
 
@@ -273,14 +282,14 @@ export default function BillingTab() {
           </div>
           <Badge
             className={
-              billingStatus === "active"
+              billingStatus === "active" || billingStatus === "internal"
                 ? "bg-emerald-100  text-emerald-700"
-                : billingStatus === "trialing"
+                : !access.expired
                   ? "bg-sky-100 text-sky-700"
                   : "bg-rose-100 text-rose-700"
             }
           >
-            {billingStatus.replace("_", " ")}
+            {billingStatus}
           </Badge>
         </CardContent>
       </Card>

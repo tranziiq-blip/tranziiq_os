@@ -24,7 +24,7 @@ export default function SiteHeader() {
             Sign in
           </Link>
           <Link to="/register" className="btn btn-primary">
-            Start a pilot
+            Start free trial
           </Link>
         </div>
       </div>

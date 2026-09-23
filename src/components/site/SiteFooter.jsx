@@ -34,7 +34,7 @@ export default function SiteFooter() {
                 <Link to="/login">Sign in</Link>
               </li>
               <li>
-                <Link to="/register">Start a pilot</Link>
+                <Link to="/register">Start 14-day free trial</Link>
               </li>
             </ul>
           </div>
