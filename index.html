@@ -1,13 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-ZA">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TranziIQ</title>
-    <!-- TEMPORARY: on-screen debug console so errors are visible without
-         needing separate browser dev tools. Remove once things are stable. -->
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
+    <title>TranziIQ | Fleet operations for bulk haulage and mining transport</title>
+    <meta name="description" content="TranziIQ runs dispatch, weighbills, driver inspections, workshop, compliance and invoicing for bulk haulage and mining-contract transport operators in South Africa." />
+    <meta property="og:title" content="TranziIQ | Fleet operations for bulk haulage" />
+    <meta property="og:description" content="Every load, ticket and truck in one place. Pricing per truck, no hardware required." />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#0b2545" />
+    <script>
+      // On-screen debug console, only when the URL contains ?debug=1
+      if (new URLSearchParams(location.search).has("debug")) {
+        var s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/eruda";
+        s.onload = function () { eruda.init(); };
+        document.head.appendChild(s);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

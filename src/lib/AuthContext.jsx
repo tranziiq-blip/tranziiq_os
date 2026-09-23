@@ -10,8 +10,8 @@
 // required" (multi-tenant hosting concern). Supabase has no such concept;
 // your app always requires auth, so we just listen to the Supabase session.
 //
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { base44, supabase } from '@/api/base44Client';
+import React, { createContext, useState, useContext, useEffect } from "react";
+import { base44, supabase } from "@/api/base44Client";
 
 const AuthContext = createContext();
 
@@ -27,16 +27,18 @@ export const AuthProvider = ({ children }) => {
 
     // Keep state in sync with Supabase's own session lifecycle
     // (token refresh, sign-out in another tab, OAuth redirect return, etc.)
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        checkUserAuth();
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
-        setAuthChecked(true);
-        setIsLoadingAuth(false);
-      }
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session) {
+          checkUserAuth();
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+          setAuthChecked(true);
+          setIsLoadingAuth(false);
+        }
+      },
+    );
 
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -55,12 +57,15 @@ export const AuthProvider = ({ children }) => {
       setAuthChecked(true);
       setIsLoadingAuth(false);
     } catch (error) {
-      console.error('User auth check failed:', error);
+      console.error("User auth check failed:", error);
       setUser(null);
       setIsAuthenticated(false);
       setAuthChecked(true);
       setIsLoadingAuth(false);
-      setAuthError({ type: 'auth_required', message: 'Authentication required' });
+      setAuthError({
+        type: "auth_required",
+        message: "Authentication required",
+      });
     }
   };
 
@@ -96,7 +101,7 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

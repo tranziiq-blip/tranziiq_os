@@ -1,256 +1,429 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader, CardTitle } from 
-"@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from 
-"@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from 
-"@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { UserPlus, Shield, User, Lock, Check } from "lucide-react";
 import { MODULES } from "@/lib/moduleAccess";
 
 export default function UsersTab() {
- const { toast } = useToast();
- const [users, setUsers] = useState([]);
- const [loading, setLoading] = useState(true);
- const [inviteEmail, setInviteEmail] = useState("");
- const [inviteRole, setInviteRole] = useState("user");
- const [inviteAccess, setInviteAccess] = useState([]);
- const [inviting, setInviting] = useState(false);
- const [editUser, setEditUser] = useState(null);
- const [editAccess, setEditAccess] = useState([]);
- const [directoryClients, setDirectoryClients] = useState([]);
- const [inviteClientId, setInviteClientId] = useState("");
+  const { toast } = useToast();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("user");
+  const [inviteAccess, setInviteAccess] = useState([]);
+  const [inviting, setInviting] = useState(false);
+  const [editUser, setEditUser] = useState(null);
+  const [editAccess, setEditAccess] = useState([]);
+  const [directoryClients, setDirectoryClients] = useState([]);
+  const [inviteClientId, setInviteClientId] = useState("");
 
- useEffect(() => {
- (async () => {
- try {
- setUsers(await base44.entities.User.list());
- setDirectoryClients(await base44.entities.BusinessDirectory.filter({ 
-entity_type: "client" }).catch(() => []));
- } catch (e) { console.error(e); } finally { setLoading(false); }
- })();
- }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        setUsers(await base44.entities.User.list());
+        setDirectoryClients(
+          await base44.entities.BusinessDirectory.filter({
+            entity_type: "client",
+          }).catch(() => []),
+        );
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
- const refresh = async () => {
- setUsers(await base44.entities.User.list());
- setDirectoryClients(await base44.entities.BusinessDirectory.filter({ 
-entity_type: "client" }).catch(() => []));
- };
+  const refresh = async () => {
+    setUsers(await base44.entities.User.list());
+    setDirectoryClients(
+      await base44.entities.BusinessDirectory.filter({
+        entity_type: "client",
+      }).catch(() => []),
+    );
+  };
 
- const toggleInviteAccess = (key) => {
- setInviteAccess(prev => prev.includes(key) ? prev.filter(k => k !== key) : 
-[...prev, key]);
- };
+  const toggleInviteAccess = (key) => {
+    setInviteAccess((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  };
 
- const toggleEditAccess = (key) => {
- setEditAccess(prev => prev.includes(key) ? prev.filter(k => k !== key) : 
-[...prev, key]);
- };
+  const toggleEditAccess = (key) => {
+    setEditAccess((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  };
 
- const handleInvite = async () => {
- if (!inviteEmail) { toast({ title: "Email required", variant: "destructive" 
-}); return; }
- if (inviteRole === "client" && !inviteClientId) { toast({ title: "Select a  client to link", variant: "destructive" }); return; }
- setInviting(true);
- try {
- await base44.users.inviteUser(inviteEmail, inviteRole);
- await new Promise(r => setTimeout(r, 500));
- const updated = await base44.entities.User.list();
- const newUser = updated.find(u => u.email === inviteEmail);
- if (newUser) {
- const updates = {};
- if (inviteAccess.length > 0) updates.module_access = inviteAccess;
- if (inviteRole === "client" && inviteClientId) {
- const client = directoryClients.find(c => c.id === inviteClientId);
- if (client) { updates.linked_client_name = client.name; 
-updates.linked_directory_id = client.id; }
- }
- if (Object.keys(updates).length > 0) await 
-base44.entities.User.update(newUser.id, updates);
- if (inviteRole === "client" && inviteClientId) {
- await base44.entities.BusinessDirectory.update(inviteClientId, {
- portal_access_email: inviteEmail, portal_user_id: newUser.id, 
-portal_access_enabled: true
- });
- }
- }
- toast({ title: "Invitation sent", description: inviteRole === "client" ? 
-`${inviteEmail} invited as client portal user` : `${inviteEmail} has been 
-invited` });
- setInviteEmail(""); setInviteAccess([]); setInviteClientId("");
- await refresh();
- } catch (e) { toast({ title: "Failed to invite", description: e.message, 
-variant: "destructive" }); } finally { setInviting(false); }
- };
+  const handleInvite = async () => {
+    if (!inviteEmail) {
+      toast({ title: "Email required", variant: "destructive" });
+      return;
+    }
+    if (inviteRole === "client" && !inviteClientId) {
+      toast({ title: "Select a  client to link", variant: "destructive" });
+      return;
+    }
+    setInviting(true);
+    try {
+      await base44.users.inviteUser(inviteEmail, inviteRole);
+      await new Promise((r) => setTimeout(r, 500));
+      const updated = await base44.entities.User.list();
+      const newUser = updated.find((u) => u.email === inviteEmail);
+      if (newUser) {
+        const updates = {};
+        if (inviteAccess.length > 0) updates.module_access = inviteAccess;
+        if (inviteRole === "client" && inviteClientId) {
+          const client = directoryClients.find((c) => c.id === inviteClientId);
+          if (client) {
+            updates.linked_client_name = client.name;
+            updates.linked_directory_id = client.id;
+          }
+        }
+        if (Object.keys(updates).length > 0)
+          await base44.entities.User.update(newUser.id, updates);
+        if (inviteRole === "client" && inviteClientId) {
+          await base44.entities.BusinessDirectory.update(inviteClientId, {
+            portal_access_email: inviteEmail,
+            portal_user_id: newUser.id,
+            portal_access_enabled: true,
+          });
+        }
+      }
+      toast({
+        title: "Invitation sent",
+        description:
+          inviteRole === "client"
+            ? `${inviteEmail} invited as client portal user`
+            : `${inviteEmail} has been 
+invited`,
+      });
+      setInviteEmail("");
+      setInviteAccess([]);
+      setInviteClientId("");
+      await refresh();
+    } catch (e) {
+      toast({
+        title: "Failed to invite",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setInviting(false);
+    }
+  };
 
- const openEditAccess = (u) => {
- setEditUser(u);
- setEditAccess(u.module_access || []);
- };
+  const openEditAccess = (u) => {
+    setEditUser(u);
+    setEditAccess(u.module_access || []);
+  };
 
- const saveEditAccess = async () => {
- try {
- await base44.entities.User.update(editUser.id, { module_access: editAccess });
- toast({ title: "Access updated", description: `${editUser.full_name || 
-editUser.email}'s permissions saved` });
- setEditUser(null);
- await refresh();
- } catch (e) { toast({ title: "Failed to update", description: e.message, 
-variant: "destructive" }); }
- };
+  const saveEditAccess = async () => {
+    try {
+      await base44.entities.User.update(editUser.id, {
+        module_access: editAccess,
+      });
+      toast({
+        title: "Access updated",
+        description: `${
+          editUser.full_name || editUser.email
+        }'s permissions saved`,
+      });
+      setEditUser(null);
+      await refresh();
+    } catch (e) {
+      toast({
+        title: "Failed to update",
+        description: e.message,
+        variant: "destructive",
+      });
+    }
+  };
 
- if (loading) return <div className="flex justify-center py-12"><div 
-className="h-8 w-8 border-4 border-muted border-t-brand-teal rounded-full  animate-spin" /></div>;
+  if (loading)
+    return (
+      <div className="flex justify-center py-12">
+        <div className="h-8 w-8 border-4 border-muted border-t-brand-teal rounded-full  animate-spin" />
+      </div>
+    );
 
- return (
- <div className="space-y-6">
- {/* Invite user */}
- <Card className="border-border/60 shadow-sm">
- <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2  text-base font-semibold"><UserPlus size={18} className="text-brand-teal" /> 
-Invite Team Member</CardTitle></CardHeader>
- <CardContent>
- <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
- <div className="flex-1 space-y-1.5"><Label>Email Address</Label><Input 
-type="email" value={inviteEmail} onChange={(e) => 
-setInviteEmail(e.target.value)} placeholder="colleague@company.co.za" /></div>
- <div className="w-full sm:w-40 space-y-1.5"><Label>Role</Label>
- <Select value={inviteRole} 
-onValueChange={setInviteRole}><SelectTrigger><SelectValue 
-/></SelectTrigger><SelectContent><SelectItem value="user">User 
-(Internal)</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem 
-value="client">Client (Portal Access)</SelectItem><SelectItem 
-value="clearing_agent">Clearing Agent (Portal 
-Access)</SelectItem></SelectContent></Select>
- </div>
- <Button onClick={handleInvite} disabled={inviting} 
-className="gap-2"><UserPlus size={16} /> {inviting ? "Sending…" : "Send  Invite"}</Button>
- </div>
+  return (
+    <div className="space-y-6">
+      {/* Invite user */}
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2  text-base font-semibold">
+            <UserPlus size={18} className="text-brand-teal" />
+            Invite Team Member
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1 space-y-1.5">
+              <Label>Email Address</Label>
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="colleague@company.co.za"
+              />
+            </div>
+            <div className="w-full sm:w-40 space-y-1.5">
+              <Label>Role</Label>
+              <Select value={inviteRole} onValueChange={setInviteRole}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User (Internal)</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="client">Client (Portal Access)</SelectItem>
+                  <SelectItem value="clearing_agent">
+                    Clearing Agent (Portal Access)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleInvite}
+              disabled={inviting}
+              className="gap-2"
+            >
+              <UserPlus size={16} /> {inviting ? "Sending…" : "Send  Invite"}
+            </Button>
+          </div>
 
- {inviteRole === "client" && (
- <div className="mt-4 rounded-lg border border-brand-teal/30 bg-brand-teal/5  p-3 space-y-2">
- <p className="text-xs font-medium text-brand-navy">Link to Client</p>
- <p className="text-xs text-muted-foreground">Select the client this portal 
-user will represent. They will only see loads and invoices for this client.</p>
- <Select value={inviteClientId} onValueChange={setInviteClientId}>
- <SelectTrigger><SelectValue placeholder="Select client…" /></SelectTrigger>
- <SelectContent>{directoryClients.map(c => <SelectItem key={c.id} 
-value={c.id}>{c.name}</SelectItem>)}</SelectContent>
- </Select>
- </div>
- )}
+          {inviteRole === "client" && (
+            <div className="mt-4 rounded-lg border border-brand-teal/30 bg-brand-teal/5  p-3 space-y-2">
+              <p className="text-xs font-medium text-brand-navy">
+                Link to Client
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Select the client this portal user will represent. They will
+                only see loads and invoices for this client.
+              </p>
+              <Select value={inviteClientId} onValueChange={setInviteClientId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select client…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {directoryClients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
- {inviteRole === "user" && (
- <div className="mt-4 rounded-lg border border-border p-3">
- <div className="flex items-center gap-2 mb-3"><Lock size={14} 
-className="text-muted-foreground" /><p className="text-xs font-medium  text-muted-foreground">Module Access — select what this user can see and do. 
-Leave empty for full access.</p></div>
- <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
- {MODULES.map((m) => (
- <label key={m.key} className="flex items-center gap-2 rounded-md border  border-border/50 px-2.5 py-1.5 text-xs cursor-pointer hover:bg-muted/50">
- <input type="checkbox" checked={inviteAccess.includes(m.key)} onChange={() => 
-toggleInviteAccess(m.key)} className="h-3.5 w-3.5 rounded border-input" />
- <span className="font-medium">{m.label}</span>
- </label>
- ))}
- </div>
- </div>
- )}
- </CardContent>
- </Card>
+          {inviteRole === "user" && (
+            <div className="mt-4 rounded-lg border border-border p-3">
+              <div className="flex items-center gap-2 mb-3">
+                <Lock size={14} className="text-muted-foreground" />
+                <p className="text-xs font-medium  text-muted-foreground">
+                  Module Access — select what this user can see and do. Leave
+                  empty for full access.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {MODULES.map((m) => (
+                  <label
+                    key={m.key}
+                    className="flex items-center gap-2 rounded-md border  border-border/50 px-2.5 py-1.5 text-xs cursor-pointer hover:bg-muted/50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={inviteAccess.includes(m.key)}
+                      onChange={() => toggleInviteAccess(m.key)}
+                      className="h-3.5 w-3.5 rounded border-input"
+                    />
+                    <span className="font-medium">{m.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
- {/* User list */}
- <Card className="border-border/60 shadow-sm">
- <CardHeader className="pb-2"><CardTitle className="text-base  font-semibold">Team Members ({users.length})</CardTitle></CardHeader>
- <CardContent className="p-0 overflow-x-auto">
- <table className="w-full text-sm">
- <thead className="border-b border-border bg-muted/40">
- <tr>
- <th className="px-4 py-3 text-left font-medium  text-muted-foreground">Name</th>
- <th className="px-4 py-3 text-left font-medium  text-muted-foreground">Email</th>
- <th className="px-4 py-3 text-left font-medium  text-muted-foreground">Role</th>
- <th className="px-4 py-3 text-left font-medium  text-muted-foreground">Access</th>
- <th className="px-4 py-3"></th>
- </tr>
- </thead>
- <tbody>
- {users.map((u) => (
- <tr key={u.id} className="border-b border-border/50 last:border-0  hover:bg-muted/30">
- <td className="px-4 py-3 font-medium text-brand-navy">{u.full_name || 
-"—"}</td>
- <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
- <td className="px-4 py-3">
- {u.role === "admin" ? (
- <Badge className="bg-brand-navy text-white gap-1"><Shield size={12} /> 
-Admin</Badge>
- ) : u.role === "client" ? (
- <Badge className="bg-emerald-100 text-emerald-700 gap-1"><User size={12} /> 
-Client</Badge>
- ) : u.role === "clearing_agent" ? (
- <Badge className="bg-amber-100 text-amber-700 gap-1"><User size={12} /> 
-Clearing Agent</Badge>
- ) : (
- <Badge variant="secondary" className="gap-1"><User size={12} /> User</Badge>
- )}
- </td>
- <td className="px-4 py-3">
- {u.role === "client" ? (
- <span className="text-xs text-muted-foreground">{u.linked_client_name || "Not  linked"}</span>
- ) : u.role === "clearing_agent" ? (
- <span className="text-xs text-muted-foreground">Freight Clearance 
-Portal</span>
- ) : u.role === "admin" ? (
- <span className="text-xs text-muted-foreground">Full access</span>
- ) : !u.module_access || u.module_access.length === 0 ? (
- <span className="text-xs text-muted-foreground">Full access</span>
- ) : (
- <div className="flex flex-wrap gap-1">{u.module_access.slice(0, 3).map(k => 
-<Badge key={k} variant="secondary" className="text-[10px]">{MODULES.find(m => 
-m.key === k)?.label || k}</Badge>)}{u.module_access.length > 3 && <Badge 
-variant="secondary" className="text-[10px]">+{u.module_access.length - 
-3}</Badge>}</div>
- )}
- </td>
- <td className="px-4 py-3">{u.role !== "admin" && <button onClick={() => 
-openEditAccess(u)} className="rounded-md p-1.5 text-brand-blue  hover:bg-brand-blue/10"><Lock size={15} /></button>}</td>
- </tr>
- ))}
- </tbody>
- </table>
- </CardContent>
- </Card>
+      {/* User list */}
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base  font-semibold">
+            Team Members ({users.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border bg-muted/40">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium  text-muted-foreground">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left font-medium  text-muted-foreground">
+                  Email
+                </th>
+                <th className="px-4 py-3 text-left font-medium  text-muted-foreground">
+                  Role
+                </th>
+                <th className="px-4 py-3 text-left font-medium  text-muted-foreground">
+                  Access
+                </th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr
+                  key={u.id}
+                  className="border-b border-border/50 last:border-0  hover:bg-muted/30"
+                >
+                  <td className="px-4 py-3 font-medium text-brand-navy">
+                    {u.full_name || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
+                  <td className="px-4 py-3">
+                    {u.role === "admin" ? (
+                      <Badge className="bg-brand-navy text-white gap-1">
+                        <Shield size={12} />
+                        Admin
+                      </Badge>
+                    ) : u.role === "client" ? (
+                      <Badge className="bg-emerald-100 text-emerald-700 gap-1">
+                        <User size={12} />
+                        Client
+                      </Badge>
+                    ) : u.role === "clearing_agent" ? (
+                      <Badge className="bg-amber-100 text-amber-700 gap-1">
+                        <User size={12} />
+                        Clearing Agent
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="gap-1">
+                        <User size={12} /> User
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.role === "client" ? (
+                      <span className="text-xs text-muted-foreground">
+                        {u.linked_client_name || "Not  linked"}
+                      </span>
+                    ) : u.role === "clearing_agent" ? (
+                      <span className="text-xs text-muted-foreground">
+                        Freight Clearance Portal
+                      </span>
+                    ) : u.role === "admin" ? (
+                      <span className="text-xs text-muted-foreground">
+                        Full access
+                      </span>
+                    ) : !u.module_access || u.module_access.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">
+                        Full access
+                      </span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {u.module_access.slice(0, 3).map((k) => (
+                          <Badge
+                            key={k}
+                            variant="secondary"
+                            className="text-[10px]"
+                          >
+                            {MODULES.find((m) => m.key === k)?.label || k}
+                          </Badge>
+                        ))}
+                        {u.module_access.length > 3 && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            +{u.module_access.length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.role !== "admin" && (
+                      <button
+                        onClick={() => openEditAccess(u)}
+                        className="rounded-md p-1.5 text-brand-blue  hover:bg-brand-blue/10"
+                      >
+                        <Lock size={15} />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
- {/* Edit access dialog */}
- <Dialog open={!!editUser} onOpenChange={(v) => !v && setEditUser(null)}>
- <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
- <DialogHeader><DialogTitle className="flex items-center gap-2"><Lock 
-size={18} /> Module Access — {editUser?.full_name || 
-editUser?.email}</DialogTitle></DialogHeader>
- <p className="text-xs text-muted-foreground">Select which modules this user 
-can access. Unchecked = hidden from sidebar & route blocked. Leave all 
-unchecked for full access.</p>
- <div className="grid grid-cols-2 gap-2 py-2 sm:grid-cols-3">
- {MODULES.map((m) => (
- <label key={m.key} className={`flex items-center gap-2 rounded-md border 
-px-2.5 py-2 text-xs cursor-pointer ${editAccess.includes(m.key) ? 
-"border-brand-teal bg-brand-teal/5" : "border-border"}`}>
- <input type="checkbox" checked={editAccess.includes(m.key)} onChange={() => 
-toggleEditAccess(m.key)} className="h-3.5 w-3.5 rounded border-input" />
- <span className="font-medium">{m.label}</span>
- </label>
- ))}
- </div>
- <DialogFooter>
- <Button variant="outline" onClick={() => setEditUser(null)}>Cancel</Button>
- <Button onClick={saveEditAccess} className="gap-2 bg-brand-navy  hover:bg-brand-navy/90"><Check size={16} /> Save Access</Button>
- </DialogFooter>
- </DialogContent>
- </Dialog>
- </div>
- );
+      {/* Edit access dialog */}
+      <Dialog open={!!editUser} onOpenChange={(v) => !v && setEditUser(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock size={18} /> Module Access —{" "}
+              {editUser?.full_name || editUser?.email}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Select which modules this user can access. Unchecked = hidden from
+            sidebar & route blocked. Leave all unchecked for full access.
+          </p>
+          <div className="grid grid-cols-2 gap-2 py-2 sm:grid-cols-3">
+            {MODULES.map((m) => (
+              <label
+                key={m.key}
+                className={`flex items-center gap-2 rounded-md border 
+px-2.5 py-2 text-xs cursor-pointer ${
+                  editAccess.includes(m.key)
+                    ? "border-brand-teal bg-brand-teal/5"
+                    : "border-border"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={editAccess.includes(m.key)}
+                  onChange={() => toggleEditAccess(m.key)}
+                  className="h-3.5 w-3.5 rounded border-input"
+                />
+                <span className="font-medium">{m.label}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUser(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={saveEditAccess}
+              className="gap-2 bg-brand-navy  hover:bg-brand-navy/90"
+            >
+              <Check size={16} /> Save Access
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
