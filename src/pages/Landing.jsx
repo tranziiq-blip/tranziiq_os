@@ -4,6 +4,7 @@ import SiteLayout from "@/components/site/SiteLayout";
 import {
   ADDONS,
   DEVICE,
+  EXAMPLES,
   PLANS,
   formatRand,
   planForTrucks,
@@ -100,7 +101,7 @@ const BENEFITS = [
 const FAQS = [
   {
     q: "Do we need new hardware?",
-    a: `No. Drivers use the app on their own Android or iOS phones or tablets. If you would rather supply devices, we offer a rugged tablet with 10 GB of monthly data at ${formatRand(DEVICE.price)} per device per month.`,
+    a: `No. Drivers can use their own Android phones or tablets at no extra fee. If you would rather supply devices, we offer a rugged tablet with 10 GB of data a month at ${formatRand(DEVICE.price)} per truck per month, renewed every 36 months.`,
   },
   {
     q: "Can it connect to our vehicle tracking?",
@@ -116,7 +117,7 @@ const FAQS = [
   },
   {
     q: "Are prices fixed?",
-    a: "Prices are per truck per month in rand, excluding VAT where it applies. Enterprise fleets of more than 50 trucks receive a quote.",
+    a: "Prices are per truck per month in rand, excluding VAT where it applies. Every plan includes all its modules; there is no per-module pricing. Fleets of more than 50 trucks receive a quote.",
   },
 ];
 
@@ -248,7 +249,7 @@ function PriceCalculator({ trucks, setTrucks }) {
               onChange={(e) => setDevices(e.target.checked)}
             />
             <span>
-              A rugged tablet for every truck ({formatRand(DEVICE.price)}{" "}
+              A company tablet for every truck ({formatRand(DEVICE.price)}{" "}
               {DEVICE.unit})
             </span>
           </label>
@@ -348,8 +349,8 @@ export default function Landing() {
             </h2>
             <p className="site-body">
               Each person sees the part of the operation they run. Modules
-              switch on to match your type of operation, from side tippers on a
-              mine contract to cold-chain or abnormal loads.
+              switch on to match your type of operation and plan, from side
+              tippers on a mine contract to cold-chain or abnormal loads.
             </p>
           </div>
           <div className="roles">
@@ -460,12 +461,31 @@ export default function Landing() {
               ))}
               <tr>
                 <td>
-                  {DEVICE.name} ({DEVICE.note.toLowerCase()})
+                  {DEVICE.name}. {DEVICE.note}.
                 </td>
                 <td>
                   {formatRand(DEVICE.price)} {DEVICE.unit}
                 </td>
               </tr>
+            </tbody>
+          </table>
+          <table className="addons">
+            <caption>Example monthly costs</caption>
+            <thead>
+              <tr>
+                <th scope="col">Example operator</th>
+                <th scope="col">Per truck</th>
+                <th scope="col">Monthly total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {EXAMPLES.map((e) => (
+                <tr key={e.label}>
+                  <td>{e.label}</td>
+                  <td>{formatRand(e.perTruck)}</td>
+                  <td>{formatRand(e.total)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
           <p className="calc__fine" style={{ marginTop: 14 }}>

@@ -5,14 +5,14 @@
 export const COMPANY = {
   tradingName: "TranziIQ",
   legalName: "TranziIQ (Pty) Ltd",
-  registrationNumber: "[Add CIPC registration number]",
+  registrationNumber: "2026/373363/07",
   vatNumber: "", // leave empty if not VAT-registered
   directors: "Kea Maoba",
-  physicalAddress: "[Add street address], Rustenburg, North West, South Africa",
-  postalAddress: "[Add postal address]",
-  email: "[Add contact email]",
-  privacyEmail: "[Add privacy / information officer email]",
-  phone: "[Add phone number]",
+  physicalAddress: "86 Kock Street, Rustenburg East, Rustenburg, 0299",
+  postalAddress: "86 Kock Street, Rustenburg East, Rustenburg, 0299",
+  email: "tranziiq@gmail.com",
+  privacyEmail: "tranziiq@gmail.com",
+  phone: "+27 81 605 2162",
   informationOfficer: "Kea Maoba",
   website: "https://tranziiq-os.vercel.app",
 };
@@ -41,10 +41,12 @@ export const PLANS = [
     min: 1,
     max: 15,
     features: [
-      "Core operations modules",
-      "Driver mobile app",
-      "AI insights",
-      "Email support",
+      "Fleet management and dispatch",
+      "Driver app with SOS",
+      "RTMS trip logging",
+      "Core BI dashboard",
+      "View-only client portal",
+      "Standard support",
     ],
   },
   {
@@ -57,26 +59,29 @@ export const PLANS = [
     max: 50,
     features: [
       "Everything in Starter",
-      "Client portal access",
-      "Advanced AI reporting",
+      "Telematics intelligence",
+      "Safety and advanced compliance",
+      "Finance: invoicing and trip costing",
+      "Multi-client dispatch",
       "Priority support",
-      "API integrations",
     ],
   },
   {
     id: "enterprise",
     name: "Enterprise",
     price: null,
-    unit: "quoted per fleet",
+    unit: "specially quoted",
     range: "51 trucks and more",
     min: 51,
     max: Infinity,
     features: [
       "Everything in Growth",
-      "White-label options",
-      "Dedicated support",
-      "Custom integrations",
-      "Service level agreement",
+      "HR, stores and inventory",
+      "Engineering and maintenance",
+      "Advanced BI and custom SLA reporting",
+      "API integrations",
+      "Dedicated account manager",
+      "SLA-backed uptime and white-label client portal",
     ],
   },
 ];
@@ -102,23 +107,23 @@ export const ADDONS = [
   },
   {
     id: "starter_growth",
-    name: "Growth features on a Starter plan",
+    name: "Growth features before reaching 16 trucks",
     price: 30,
     unit: "per truck, per month",
   },
   {
     id: "growth_enterprise",
-    name: "Enterprise features on a Growth plan",
+    name: "Enterprise features before reaching 51 trucks",
     price: 20,
     unit: "per truck, per month",
   },
 ];
 
 export const DEVICE = {
-  name: "Rugged driver tablet with 10 GB monthly data",
+  name: "Device-as-a-service: rugged tablet with 10 GB data a month",
   price: 369,
-  unit: "per device, per month",
-  note: "Renewable after 36 months",
+  unit: "per truck, per month",
+  note: "36-month renewal cycle. Or bring your own Android device at no fee",
 };
 
 export function planForTrucks(count) {
@@ -127,3 +132,42 @@ export function planForTrucks(count) {
 
 export const formatRand = (n) =>
   "R" + Math.round(n).toLocaleString("en-ZA").replace(/,/g, " ");
+
+// Illustrative all-in monthly costs (from the TranziIQ pricing sheet).
+// Totals are calculated from the prices above so they never drift.
+export const EXAMPLES = [
+  {
+    label: "8 trucks, Starter, own devices",
+    trucks: 8,
+    plan: "starter",
+    addons: [],
+    devices: false,
+  },
+  {
+    label: "8 trucks, Starter with Growth features, company tablets",
+    trucks: 8,
+    plan: "starter",
+    addons: ["starter_growth"],
+    devices: true,
+  },
+  {
+    label: "30 trucks, Growth, company tablets",
+    trucks: 30,
+    plan: "growth",
+    addons: [],
+    devices: true,
+  },
+  {
+    label: "30 trucks, Growth with DG / hazmat, company tablets",
+    trucks: 30,
+    plan: "growth",
+    addons: ["dg_hazmat"],
+    devices: true,
+  },
+].map((e) => {
+  const perTruck =
+    PLANS.find((p) => p.id === e.plan).price +
+    e.addons.reduce((s, id) => s + ADDONS.find((a) => a.id === id).price, 0) +
+    (e.devices ? DEVICE.price : 0);
+  return { ...e, perTruck, total: perTruck * e.trucks };
+});
