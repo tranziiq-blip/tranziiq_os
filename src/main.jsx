@@ -2,6 +2,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "@/App.jsx";
 import "@/index.css";
+import { registerFileWorker } from "@/lib/secureFiles";
+
+registerFileWorker();
 
 // Catch render/runtime errors and show them on screen instead of a blank
 // page — this matters most right now because there's no easy dev-tools

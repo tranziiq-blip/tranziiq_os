@@ -17,6 +17,7 @@
 //     VITE_SUPABASE_ANON_KEY=xxxx
 //
 import { createClient } from "@supabase/supabase-js";
+import { safeFileName, syncFileAuth } from "@/lib/secureFiles";
 
 // Keep only "https://<ref>.supabase.co". A URL pasted with a path such as
 // "/rest/v1/" makes every sign-up fail with "Invalid path specified in request URL".
@@ -37,6 +38,31 @@ export const supabase = createClient(
   supabaseUrl || "https://missing-env-var.invalid",
   supabaseAnonKey || "missing-env-var",
 );
+
+// Keep the file service worker's token in step with the session
+supabase.auth.onAuthStateChange((_event, session) => {
+  syncFileAuth(session, supabaseUrl, supabaseAnonKey);
+});
+
+let cachedOrgId = null;
+async function currentOrgId() {
+  if (cachedOrgId) return cachedOrgId;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error("Please sign in to upload files");
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("org_id")
+    .eq("id", session.user.id)
+    .single();
+  if (error || !data?.org_id) throw new Error("Your account is not linked to a company");
+  cachedOrgId = data.org_id;
+  return cachedOrgId;
+}
+supabase.auth.onAuthStateChange((event) => {
+  if (event === "SIGNED_OUT" || event === "SIGNED_IN") cachedOrgId = null;
+});
 
 // ---------------------------------------------------------------
 // Map PascalCase entity names (as used in the app) -> snake_case
@@ -354,14 +380,16 @@ const auth = {
 // ---------------------------------------------------------------
 const integrations = {
   Core: {
+    // Files go into the company's own folder of a private bucket. The
+    // returned link only opens for signed-in users of the same company.
     async UploadFile({ file }) {
-      const path = `${crypto.randomUUID()}-${file.name}`;
+      const orgId = await currentOrgId();
+      const path = `${orgId}/${crypto.randomUUID()}-${safeFileName(file?.name)}`;
       const { error } = await supabase.storage
         .from("uploads")
-        .upload(path, file);
+        .upload(path, file, { contentType: file?.type || undefined });
       if (error) throw error;
-      const { data } = supabase.storage.from("uploads").getPublicUrl(path);
-      return { file_url: data.publicUrl };
+      return { file_url: `/files/${path}` };
     },
   },
 };
