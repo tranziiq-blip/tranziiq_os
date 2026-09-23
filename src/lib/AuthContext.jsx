@@ -30,7 +30,8 @@ export const AuthProvider = ({ children }) => {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session) {
-          checkUserAuth();
+          // Defer: awaiting Supabase calls inside this callback deadlocks supabase-js
+          setTimeout(() => checkUserAuth(), 0);
         } else {
           setUser(null);
           setIsAuthenticated(false);
@@ -46,7 +47,12 @@ export const AuthProvider = ({ children }) => {
   const checkUserAuth = async () => {
     try {
       setIsLoadingAuth(true);
-      const currentUser = await base44.auth.me();
+      const currentUser = await Promise.race([
+        base44.auth.me(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Auth check timed out")), 10000),
+        ),
+      ]);
       if (currentUser) {
         setUser(currentUser);
         setIsAuthenticated(true);
@@ -85,8 +91,10 @@ export const AuthProvider = ({ children }) => {
         user,
         isAuthenticated,
         isLoadingAuth,
-        isLoadingPublicSettings: false, // kept for compatibility, always false now authError,
-        appPublicSettings: null, // kept for compatibility, unused now authChecked,
+        isLoadingPublicSettings: false, // kept for compatibility, always false now
+        authError,
+        appPublicSettings: null, // kept for compatibility, unused now
+        authChecked,
         logout,
         navigateToLogin,
         checkUserAuth,

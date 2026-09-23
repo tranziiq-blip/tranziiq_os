@@ -87,7 +87,8 @@ const TABLE_MAP = {
   TrainingRequirement: "training_requirement",
   TransportManifest: "transport_manifest",
   Tyre: "tyre",
-  User: "profiles", // Base44's User entity maps to our profiles table VFL: 'vfl',
+  User: "profiles", // Base44's User entity maps to our profiles table
+  VFL: "vfl",
   Weighbill: "weighbill",
   AbnormalLoadPermit: "abnormal_load_permit",
   BankTransaction: "bank_transaction",
@@ -187,15 +188,16 @@ const entities = new Proxy(
 const auth = {
   async me() {
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) return null;
     const { data: profile } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", user.id)
-      .single();
-    return { ...user, ...profile };
+      .maybeSingle();
+    return { ...user, ...(profile || {}) };
   },
 
   async isAuthenticated() {
