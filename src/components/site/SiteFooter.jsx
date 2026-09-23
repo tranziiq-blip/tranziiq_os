@@ -9,10 +9,16 @@ export default function SiteFooter() {
       <div className="site-wrap">
         <div className="site-footer__grid">
           <div>
-            <h4>{COMPANY.legalName}</h4>
+            <img
+              src="/brand/tranziiq-logo.png"
+              alt="TranziIQ"
+              width="96"
+              height="96"
+              style={{ marginBottom: 12 }}
+            />
             <p style={{ margin: 0, maxWidth: "32em" }}>
-              Fleet operations software for bulk haulage and mining-contract
-              transport in South Africa and the SADC region.
+              Fleet operations software for road freight and goods transport
+              operators in South Africa and the SADC region.
             </p>
           </div>
           <div>

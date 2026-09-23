@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import SiteLayout from "@/components/site/SiteLayout";
+import { OPERATION_TYPES } from "@/lib/operationTypes";
 import {
   ADDONS,
   DEVICE,
@@ -12,23 +13,23 @@ import {
 
 const PROBLEMS = [
   {
-    title: "Tickets go missing between the weighbridge and the invoice",
-    body: "Paper weighbills, WhatsApp photos and spreadsheets mean short-loads and disputes surface weeks later, when the client queries the invoice.",
+    title: "Paperwork goes missing between loading and the invoice",
+    body: "Paper delivery notes, weighbills, WhatsApp photos and spreadsheets mean short deliveries and disputes surface weeks later, when the client queries the invoice.",
   },
   {
-    title: "Nobody can say what a truck actually costs per kilometre",
+    title: "Nobody can say what a vehicle actually costs per kilometre",
     body: "Fuel, tyres, repairs and driver time sit in different books, so rates get quoted on gut feel instead of real cost per kilometre.",
   },
   {
     title: "Audit week turns into a paper chase",
-    body: "Mining houses ask for licences, COFs, driver competencies and toolbox talks on the spot. Expired documents stop trucks at the gate.",
+    body: "Clients, insurers and auditors ask for licences, COFs, driver competencies and safety records on the spot. Expired documents stop vehicles at the gate.",
   },
 ];
 
 const ROLES = [
   {
     who: "Controllers",
-    what: "Plan and dispatch loads, track status from loading point to offload, capture weighbills and delivery notes, and see every truck on one board.",
+    what: "Plan and dispatch loads, track status from loading point to offload, capture weighbills and delivery notes, and see every vehicle on one board.",
   },
   {
     who: "Drivers",
@@ -40,7 +41,7 @@ const ROLES = [
   },
   {
     who: "SHEQ and compliance",
-    what: "Incidents, risk register, toolbox talks, visible felt leadership, shift risk assessments, and document expiry alerts for trucks, trailers and people.",
+    what: "Incidents, risk register, toolbox talks, visible felt leadership, shift risk assessments, and document expiry alerts for vehicles, trailers and people.",
   },
   {
     who: "Cross-border clearing",
@@ -55,7 +56,7 @@ const ROLES = [
 const STEPS = [
   {
     title: "Set up your fleet",
-    body: "We load your trucks, trailers, drivers and clients with you, and switch on the modules that match your operation.",
+    body: "We load your vehicles, trailers, drivers and clients with you, and switch on the modules that match your operation.",
   },
   {
     title: "Drivers go live",
@@ -77,15 +78,15 @@ const BENEFITS = [
     body: "Load, weighbill, delivery note and invoice are linked, so a client query takes a minute to answer instead of a day.",
   },
   {
-    title: "Real cost per kilometre, per truck",
-    body: "Fuel, parts, tyres and repairs are captured against the truck that used them, so you quote rates you can defend.",
+    title: "Real cost per kilometre, per vehicle",
+    body: "Fuel, parts, tyres and repairs are captured against the vehicle that used them, so you quote rates you can defend.",
   },
   {
-    title: "Documents renewed before they stop a truck",
-    body: "Licence discs, COFs, permits and driver credentials are flagged ahead of expiry instead of at the mine gate.",
+    title: "Documents renewed before they stop a vehicle",
+    body: "Licence discs, COFs, permits and driver credentials are flagged ahead of expiry instead of at a client’s gate or a roadblock.",
   },
   {
-    title: "Audit files ready when the mine asks",
+    title: "Audit files ready when a client asks",
     body: "Inspections, toolbox talks, incidents and risk assessments are stored against dates and people, ready to export.",
   },
   {
@@ -93,15 +94,15 @@ const BENEFITS = [
     body: "Clearing agents request documents and report holds or inspections through the portal, and the controller and driver are notified straight away.",
   },
   {
-    title: "Built for how haulage runs here",
-    body: "Designed around South African mining-contract transport and SADC corridors, by people who have run the loads.",
+    title: "Built for South African road freight",
+    body: "Designed around how freight operators in South Africa and on SADC corridors actually work, by people who have run the loads.",
   },
 ];
 
 const FAQS = [
   {
     q: "Do we need new hardware?",
-    a: `No. Drivers can use their own Android phones or tablets at no extra fee. If you would rather supply devices, we offer a rugged tablet with 10 GB of data a month at ${formatRand(DEVICE.price)} per truck per month, renewed every 36 months.`,
+    a: `No. Drivers can use their own Android phones or tablets at no extra fee. If you would rather supply devices, we offer a rugged tablet with 10 GB of data a month at ${formatRand(DEVICE.price)} per vehicle per month, renewed every 36 months.`,
   },
   {
     q: "Can it connect to our vehicle tracking?",
@@ -117,7 +118,7 @@ const FAQS = [
   },
   {
     q: "Are prices fixed?",
-    a: "Prices are per truck per month in rand, excluding VAT where it applies. Every plan includes all its modules; there is no per-module pricing. Fleets of more than 50 trucks receive a quote.",
+    a: "Prices are per vehicle per month in rand, excluding VAT where it applies. Every plan includes all its modules; there is no per-module pricing. Fleets of 51 vehicles or more receive a tailored quote.",
   },
 ];
 
@@ -142,32 +143,32 @@ function WeighbridgeTicket() {
         </div>
         <div className="ticket__row">
           <span>Truck</span>
-          <span>Actros 3345 / Side tipper</span>
+          <span>Actros 2645 / Tautliner</span>
         </div>
         <div className="ticket__row">
           <span>From</span>
-          <span>Shaft 3 stockpile</span>
+          <span>Rustenburg depot</span>
         </div>
         <div className="ticket__row">
           <span>To</span>
-          <span>Concentrator plant</span>
+          <span>City Deep, Johannesburg</span>
         </div>
         <div className="ticket__row">
           <span>Commodity</span>
-          <span>ROM ore</span>
+          <span>Palletised cement</span>
         </div>
         <div className="ticket__weights">
           <div className="ticket__row">
             <span>Gross</span>
-            <span>56 140 kg</span>
+            <span>50 140 kg</span>
           </div>
           <div className="ticket__row">
             <span>Tare</span>
-            <span>21 880 kg</span>
+            <span>16 880 kg</span>
           </div>
           <div className="ticket__row ticket__net">
             <span>Net</span>
-            <span>34.26 t</span>
+            <span>33.26 t</span>
           </div>
         </div>
         <div className="ticket__checks">
@@ -192,7 +193,10 @@ function PriceCalculator({ trucks, setTrucks }) {
   const lines = useMemo(() => {
     const out = [];
     if (plan.price)
-      out.push([`${plan.name} plan, ${trucks} trucks`, plan.price * trucks]);
+      out.push([
+        `${plan.name} plan, ${trucks} ${trucks === 1 ? "vehicle" : "vehicles"}`,
+        plan.price * trucks,
+      ]);
     for (const id of addons) {
       const a = ADDONS.find((x) => x.id === id);
       out.push([a.name, a.price * trucks]);
@@ -210,7 +214,7 @@ function PriceCalculator({ trucks, setTrucks }) {
   return (
     <div className="calc">
       <div>
-        <label htmlFor="truck-count">How many trucks do you run?</label>
+        <label htmlFor="truck-count">How many vehicles do you run?</label>
         <input
           id="truck-count"
           type="range"
@@ -218,10 +222,10 @@ function PriceCalculator({ trucks, setTrucks }) {
           max="120"
           value={trucks}
           onChange={(e) => setTrucks(Number(e.target.value))}
-          aria-valuetext={`${trucks} trucks`}
+          aria-valuetext={`${trucks} vehicles`}
         />
         <div className="calc__count">
-          {trucks} {trucks === 1 ? "truck" : "trucks"}
+          {trucks} {trucks === 1 ? "vehicle" : "vehicles"}
         </div>
         <fieldset
           className="calc__opts"
@@ -249,7 +253,7 @@ function PriceCalculator({ trucks, setTrucks }) {
               onChange={(e) => setDevices(e.target.checked)}
             />
             <span>
-              A company tablet for every truck ({formatRand(DEVICE.price)}{" "}
+              A company tablet for every vehicle ({formatRand(DEVICE.price)}{" "}
               {DEVICE.unit})
             </span>
           </label>
@@ -277,7 +281,7 @@ function PriceCalculator({ trucks, setTrucks }) {
               Enterprise quote
             </div>
             <p className="site-body" style={{ marginTop: 10 }}>
-              Fleets of more than 50 trucks are priced per operation, including
+              Fleets of 51 vehicles or more are priced per operation, including
               integrations and service levels. Start a pilot and we will send a
               written quote.
             </p>
@@ -293,16 +297,16 @@ export default function Landing() {
   const activePlan = planForTrucks(trucks);
 
   return (
-    <SiteLayout title="TranziIQ | Fleet operations for bulk haulage and mining transport">
+    <SiteLayout title="TranziIQ | Fleet operations software for road freight operators">
       <section className="hero">
         <div className="site-wrap hero__grid">
           <div>
             <h1 className="site-h1">
-              Every load, ticket and truck in one place.
+              Every load, ticket and vehicle in one place.
             </h1>
             <p className="site-lead" style={{ marginTop: 22 }}>
-              TranziIQ runs the day-to-day of bulk haulage and mining-contract
-              transport: dispatch, weighbills, driver inspections, workshop,
+              TranziIQ runs the day-to-day of road freight operations: dispatch,
+              trip and delivery records, driver inspections, workshop,
               compliance and invoicing, on a phone in the cab and a screen in
               the office.
             </p>
@@ -315,11 +319,39 @@ export default function Landing() {
               </a>
             </div>
             <p className="hero__note">
-              From {formatRand(PLANS[1].price)} per truck per month. No hardware
-              required.
+              {formatRand(PLANS[0].price)} per vehicle a month for 1 to 15
+              vehicles, {formatRand(PLANS[1].price)} per vehicle from 16
+              vehicles, and a tailored quote for 51 or more.
             </p>
           </div>
           <WeighbridgeTicket />
+        </div>
+      </section>
+      <section
+        className="band"
+        aria-labelledby="ops-title"
+        style={{ paddingTop: 0 }}
+      >
+        <div className="site-wrap">
+          <div className="band__intro" style={{ marginBottom: 24 }}>
+            <h2 id="ops-title" className="site-h2">
+              Built for every kind of freight operation
+            </h2>
+            <p className="site-body">
+              Choose your operation when you sign up and TranziIQ switches on
+              the modules and compliance checks that fit it, whether you run one
+              vehicle or hundreds.
+            </p>
+          </div>
+          <ul className="ops">
+            {OPERATION_TYPES.map((t) => (
+              <li key={t.key}>{t.label}</li>
+            ))}
+          </ul>
+          <p className="ops-note">
+            TranziIQ is built for goods and freight transport. It does not cover
+            passenger transport.
+          </p>
         </div>
       </section>
 
@@ -327,7 +359,7 @@ export default function Landing() {
         <div className="site-wrap">
           <div className="band__intro">
             <h2 id="problems-title" className="site-h2">
-              Where haulage operations leak money
+              Where transport operations leak money
             </h2>
           </div>
           <div className="problems">
@@ -349,8 +381,8 @@ export default function Landing() {
             </h2>
             <p className="site-body">
               Each person sees the part of the operation they run. Modules
-              switch on to match your type of operation and plan, from side
-              tippers on a mine contract to cold-chain or abnormal loads.
+              switch on to match your type of operation and plan, from a single
+              tautliner to tankers, cold chain, bulk and abnormal loads.
             </p>
           </div>
           <div className="roles">
@@ -414,7 +446,7 @@ export default function Landing() {
         <div className="site-wrap">
           <div className="band__intro">
             <h2 id="pricing-title" className="site-h2">
-              Pricing per truck
+              Pricing per vehicle
             </h2>
             <p className="site-body">
               The rate drops as your fleet grows. Move the slider to see what
@@ -474,7 +506,7 @@ export default function Landing() {
             <thead>
               <tr>
                 <th scope="col">Example operator</th>
-                <th scope="col">Per truck</th>
+                <th scope="col">Per vehicle</th>
                 <th scope="col">Monthly total</th>
               </tr>
             </thead>
@@ -522,7 +554,7 @@ export default function Landing() {
             </h2>
             <p className="site-lead" style={{ marginTop: 16 }}>
               Create an account, pick your type of operation, and we will set up
-              your trucks and drivers with you.
+              your vehicles and drivers with you.
             </p>
           </div>
           <div className="hero__ctas" style={{ marginTop: 0 }}>

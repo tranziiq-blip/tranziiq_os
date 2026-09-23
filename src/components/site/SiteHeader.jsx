@@ -5,7 +5,13 @@ export default function SiteHeader() {
     <header className="site-header">
       <div className="site-wrap site-header__row">
         <Link to="/" className="site-logo" aria-label="TranziIQ home">
-          Tranzi<span>IQ</span>
+          <img src="/brand/tranziiq-mark.png" alt="" width="46" height="34" />
+          <img
+            src="/brand/tranziiq-wordmark.png"
+            alt="TranziIQ"
+            width="128"
+            height="19"
+          />
         </Link>
         <nav className="site-nav" aria-label="Main">
           <a href="/#how-it-works">How it works</a>

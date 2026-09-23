@@ -18,8 +18,18 @@
 //
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Keep only "https://<ref>.supabase.co". A URL pasted with a path such as
+// "/rest/v1/" makes every sign-up fail with "Invalid path specified in request URL".
+const supabaseUrl = (() => {
+  const raw = (import.meta.env.VITE_SUPABASE_URL || "").trim();
+  if (!raw) return "";
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return raw.replace(/\/+$/, "");
+  }
+})();
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 // Placeholders stop createClient throwing at import time when env vars are
 // missing, so main.jsx can show a clear "missing environment variables" screen.

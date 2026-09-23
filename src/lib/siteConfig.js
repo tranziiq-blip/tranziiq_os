@@ -36,8 +36,8 @@ export const PLANS = [
     id: "starter",
     name: "Starter",
     price: 380,
-    unit: "per truck, per month",
-    range: "1 to 15 trucks",
+    unit: "per vehicle, per month",
+    range: "1 to 15 vehicles",
     min: 1,
     max: 15,
     features: [
@@ -53,8 +53,8 @@ export const PLANS = [
     id: "growth",
     name: "Growth",
     price: 320,
-    unit: "per truck, per month",
-    range: "16 to 50 trucks",
+    unit: "per vehicle, per month",
+    range: "16 to 50 vehicles",
     min: 16,
     max: 50,
     features: [
@@ -71,7 +71,7 @@ export const PLANS = [
     name: "Enterprise",
     price: null,
     unit: "specially quoted",
-    range: "51 trucks and more",
+    range: "51 vehicles and more",
     min: 51,
     max: Infinity,
     features: [
@@ -91,38 +91,38 @@ export const ADDONS = [
     id: "dg_hazmat",
     name: "Dangerous goods and hazmat compliance",
     price: 249,
-    unit: "per truck, per month",
+    unit: "per vehicle, per month",
   },
   {
     id: "cold_chain",
     name: "Cold-chain temperature monitoring",
     price: 249,
-    unit: "per truck, per month",
+    unit: "per vehicle, per month",
   },
   {
     id: "abnormal_load",
     name: "Abnormal-load permits and escorts",
     price: 249,
-    unit: "per truck, per month",
+    unit: "per vehicle, per month",
   },
   {
     id: "starter_growth",
-    name: "Growth features before reaching 16 trucks",
+    name: "Growth features before reaching 16 vehicles",
     price: 30,
-    unit: "per truck, per month",
+    unit: "per vehicle, per month",
   },
   {
     id: "growth_enterprise",
-    name: "Enterprise features before reaching 51 trucks",
+    name: "Enterprise features before reaching 51 vehicles",
     price: 20,
-    unit: "per truck, per month",
+    unit: "per vehicle, per month",
   },
 ];
 
 export const DEVICE = {
   name: "Device-as-a-service: rugged tablet with 10 GB data a month",
   price: 369,
-  unit: "per truck, per month",
+  unit: "per vehicle, per month",
   note: "36-month renewal cycle. Or bring your own Android device at no fee",
 };
 
@@ -137,28 +137,28 @@ export const formatRand = (n) =>
 // Totals are calculated from the prices above so they never drift.
 export const EXAMPLES = [
   {
-    label: "8 trucks, Starter, own devices",
+    label: "8 vehicles, Starter, own devices",
     trucks: 8,
     plan: "starter",
     addons: [],
     devices: false,
   },
   {
-    label: "8 trucks, Starter with Growth features, company tablets",
+    label: "8 vehicles, Starter with Growth features, company tablets",
     trucks: 8,
     plan: "starter",
     addons: ["starter_growth"],
     devices: true,
   },
   {
-    label: "30 trucks, Growth, company tablets",
+    label: "30 vehicles, Growth, company tablets",
     trucks: 30,
     plan: "growth",
     addons: [],
     devices: true,
   },
   {
-    label: "30 trucks, Growth with DG / hazmat, company tablets",
+    label: "30 vehicles, Growth with DG / hazmat, company tablets",
     trucks: 30,
     plan: "growth",
     addons: ["dg_hazmat"],
