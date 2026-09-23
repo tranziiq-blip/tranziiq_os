@@ -523,47 +523,111 @@ export default function JobCardDetailDialog({
           )}
 
           {/* Checklist */}
-          {showChecklist && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wider  text-muted-foreground">
-                  {jobCard.asset_type === "trailer" ? "Trailer" : "Truck"}
-                  Service Checklist
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={saveChecklist}
-                  disabled={saving}
-                  className="gap-1"
-                >
-                  <Save size={14} /> Save
-                </Button>
-              </div>
-              {sections.map((section) => (
-                <div
-                  key={section.id}
-                  className="rounded-lg border border-border/60 p-3"
-                >
-                  <p className="mb-2 text-sm font-semibold text-brand-navy">
-                    {section.title}
-                  </p>
-                  <div className="space-y-0">
-                    {section.items.map((item) => (
-                      <CheckItem
-                        key={item.id}
-                        item={item}
-                        value={checklist[item.id]}
-                        onChange={(id, val) =>
-                          setChecklist((p) => ({ ...p, [id]: val }))
-                        }
-                      />
-                    ))}
+          {showChecklist && (() => {
+            const isInspection = jobCard.job_type === "inspection";
+            const allIds = sections.flatMap((sct) => sct.items.map((it) => it.id));
+            const answered = allIds.filter((id) => checklist[id]).length;
+            const failed = allIds.filter((id) => checklist[id] === "fail").length;
+            const setSection = (sct, val) =>
+              setChecklist((p) => {
+                const next = { ...p };
+                sct.items.forEach((it) => {
+                  if (!next[it.id]) next[it.id] = val; // never overwrite a recorded fail
+                });
+                return next;
+              });
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {jobCard.asset_type === "trailer" ? "Trailer" : "Truck"}{" "}
+                      {isInspection ? `${allIds.length}-Point Inspection` : "Service Checklist"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {answered} of {allIds.length} checked
+                      {failed > 0 && (
+                        <span className="font-semibold text-rose-600"> · {failed} failed</span>
+                      )}
+                    </p>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={saveChecklist}
+                    disabled={saving}
+                    className="gap-1"
+                  >
+                    <Save size={14} /> Save
+                  </Button>
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="h-1.5 w-full rounded-full bg-muted">
+                  <div
+                    className="h-1.5 rounded-full bg-brand-teal transition-all"
+                    style={{ width: `${allIds.length ? (answered / allIds.length) * 100 : 0}%` }}
+                  />
+                </div>
+                {sections.map((section, idx) => {
+                  const done = section.items.filter((it) => checklist[it.id]).length;
+                  const fails = section.items.filter((it) => checklist[it.id] === "fail").length;
+                  return (
+                    <details
+                      key={section.id}
+                      open={!isInspection || idx === 0}
+                      className="group rounded-lg border border-border/60"
+                    >
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3">
+                        <span className="text-sm font-semibold text-brand-navy">
+                          {isInspection ? `${idx + 1}. ` : ""}
+                          {section.title}
+                        </span>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            fails
+                              ? "bg-rose-100 text-rose-700"
+                              : done === section.items.length
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {done}/{section.items.length}
+                          {fails ? ` · ${fails} fail` : ""}
+                        </span>
+                      </summary>
+                      <div className="border-t border-border/40 px-3 pb-2">
+                        <div className="flex justify-end gap-2 py-2">
+                          <button
+                            type="button"
+                            onClick={() => setSection(section, "pass")}
+                            className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700"
+                          >
+                            Rest pass
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSection(section, "na")}
+                            className="rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-600"
+                          >
+                            Rest N/A
+                          </button>
+                        </div>
+                        {section.items.map((item) => (
+                          <CheckItem
+                            key={item.id}
+                            item={item}
+                            value={checklist[item.id]}
+                            onChange={(id, val) =>
+                              setChecklist((p) => ({ ...p, [id]: val }))
+                            }
+                          />
+                        ))}
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       </DialogContent>
     </Dialog>

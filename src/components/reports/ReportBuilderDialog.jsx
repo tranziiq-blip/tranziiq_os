@@ -24,7 +24,7 @@ const REPORT_TYPES = [
   { value: "financial_summary", label: "Financial Summary" },
   { value: "load_activity", label: "Load Activity" },
   { value: "maintenance_report", label: "Maintenance Report" },
-  { value: "sheq_compliance", label: "SHEQ Compliance" },
+  { value: "sheq_compliance", label: "SHERQ Compliance" },
   { value: "driver_performance", label: "Driver Performance" },
   { value: "fuel_analysis", label: "Fuel Analysis" },
   { value: "client_summary", label: "Client Summary" },

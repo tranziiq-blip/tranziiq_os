@@ -18,8 +18,8 @@ export const COMPANY = {
 };
 
 export const LEGAL = {
-  effectiveDate: "23 September 2026",
-  termsVersion: "2026-09-23",
+  effectiveDate: "24 September 2026",
+  termsVersion: "2026-09-24",
   privacyVersion: "2026-09-23",
   cookieVersion: "2026-09-23",
   regulator: {
@@ -125,6 +125,69 @@ export const DEVICE = {
   unit: "per vehicle, per month",
   note: "36-month renewal cycle. Or bring your own Android device at no fee",
 };
+
+// Commitment terms. The discount applies to the core plan fee only:
+// add-ons and device-as-a-service are always charged at full price, so
+// long terms cannot erode hardware or compliance-module margin.
+// Leaving a committed term early repays only the discount received so far,
+// which puts the customer back where a monthly customer would have been.
+export const TERMS = [
+  {
+    id: "monthly",
+    months: 1,
+    label: "Month to month",
+    short: "Monthly",
+    discount: 0,
+    perks: [
+      "Cancel with 30 days' notice",
+      "Prices reviewed each year in line with inflation",
+    ],
+  },
+  {
+    id: "12m",
+    months: 12,
+    label: "12-month plan",
+    short: "12 months",
+    discount: 0.075,
+    perks: [
+      "Price locked for 12 months",
+      "Guided onboarding and driver training included",
+    ],
+  },
+  {
+    id: "24m",
+    months: 24,
+    label: "24-month plan",
+    short: "24 months",
+    discount: 0.125,
+    perks: [
+      "Price locked for 24 months",
+      "Guided onboarding and driver training included",
+      "Quarterly fleet performance review with our team",
+    ],
+  },
+  {
+    id: "36m",
+    months: 36,
+    label: "36-month plan",
+    short: "36 months",
+    discount: 0.15,
+    popular: true,
+    perks: [
+      "Price locked for 36 months",
+      "Guided onboarding and driver training included",
+      "Quarterly fleet performance review with our team",
+      "Runs alongside the 36-month device cycle",
+      "Yearly refresher training for new drivers",
+    ],
+  },
+];
+
+export const termById = (id) => TERMS.find((t) => t.id === id) || TERMS[0];
+
+// Discounted per-vehicle plan price, rounded to the nearest rand
+export const termPrice = (price, termId) =>
+  price ? Math.round(price * (1 - termById(termId).discount)) : price;
 
 export function planForTrucks(count) {
   return PLANS.find((p) => count >= p.min && count <= p.max) || PLANS[0];

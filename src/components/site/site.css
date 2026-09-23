@@ -957,3 +957,47 @@
   color: var(--muted);
   font-size: 0.95rem;
 }
+
+/* ---- Contract terms ---- */
+.term-pick { border: 0; padding: 0; margin: 20px 0 0; }
+.term-pick legend { font-weight: 650; margin-bottom: 8px; }
+.term-pick__row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.term-pick__opt {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  gap: 2px; padding: 10px 6px; border: 1px solid var(--rule); border-radius: 8px;
+  cursor: pointer; background: var(--paper); text-align: center;
+}
+.term-pick__opt input { position: absolute; opacity: 0; pointer-events: none; }
+.term-pick__opt:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; }
+.term-pick__opt.is-on { border-color: var(--blue); background: #eef5ff; box-shadow: inset 0 0 0 1px var(--blue); }
+.term-pick__name { font-weight: 700; font-size: 0.95rem; }
+.term-pick__off { font-size: 0.78rem; color: var(--teal-deep); font-weight: 600; }
+@media (max-width: 520px) { .term-pick__row { grid-template-columns: repeat(2, 1fr); } }
+
+.calc__save { margin-top: 10px; font-weight: 650; color: var(--teal-deep); }
+.calc__save--hint { color: var(--ink-soft); font-weight: 500; }
+.plan__from { margin-top: 8px; font-weight: 650; color: var(--teal-deep); font-size: 0.92rem; }
+
+.terms { margin-top: 40px; }
+.terms__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 18px; }
+.term-card {
+  position: relative; padding: 22px 20px; border: 1px solid var(--rule);
+  border-radius: 8px; background: var(--paper);
+}
+.term-card--best { border-color: var(--teal); box-shadow: inset 0 4px 0 var(--teal); }
+.term-card__tag {
+  position: absolute; top: -11px; right: 14px; background: var(--teal); color: #fff;
+  font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+.term-card__name { font-weight: 800; font-size: 1.1rem; }
+.term-card__off { color: var(--teal-deep); font-weight: 700; margin-top: 4px; }
+.term-card__prices { margin-top: 10px; font-weight: 650; }
+.term-card__prices span { display: block; font-weight: 400; color: var(--muted); font-size: 0.88rem; }
+.term-card ul { padding-left: 1.1em; margin: 14px 0 0; color: var(--ink-soft); font-size: 0.93rem; }
+.term-card li { margin: 4px 0; }
+@media (max-width: 1000px) { .terms__grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .terms__grid { grid-template-columns: 1fr; } }
+.calc .term-pick__opt { display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; font-weight: 400; }
+.calc .term-pick__name, .calc .term-pick__off { display: block; line-height: 1.25; }
+.term-card ul, .plan ul { list-style: disc; }

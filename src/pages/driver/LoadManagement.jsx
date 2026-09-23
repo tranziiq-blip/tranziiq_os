@@ -115,9 +115,7 @@ export default function LoadManagement() {
         if (gate.blocked) {
           toast({
             title: "Dispatch gate blocked",
-            description: `${gate.failures.length} required 
-${PROFILE_TYPES[prof.profile_type]?.label || "compliance"} document(s) missing, 
-expired or failed — the compliance checklist must be cleared before departure.`,
+            description: `${gate.failures.length} required ${PROFILE_TYPES[prof.profile_type]?.label || "compliance"} document(s) missing, expired or failed — the compliance checklist must be cleared before departure.`,
             variant: "destructive",
           });
           return;
@@ -125,7 +123,7 @@ expired or failed — the compliance checklist must be cleared before departure.
       }
       await base44.entities.Load.update(load.id, {
         driver_id: driver.id,
-        truck_id: driver.assigned_truck_id || "",
+        truck_id: driver.assigned_truck_id || load.truck_id || null,
         status: "enroute_to_loading",
       });
       toast({ title: "Load accepted", description: load.load_number });

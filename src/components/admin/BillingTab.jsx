@@ -20,6 +20,7 @@ import {
   Save,
 } from "lucide-react";
 import { PLAN_THRESHOLDS, getPlanForTruckCount } from "@/lib/operationTypes";
+import { TERMS, termById, termPrice } from "@/lib/siteConfig";
 
 const PLANS = [
   {
@@ -140,6 +141,7 @@ export default function BillingTab() {
   const [selectedAddons, setSelectedAddons] = useState([]);
   const [deviceQty, setDeviceQty] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [termId, setTermId] = useState("monthly");
 
   useEffect(() => {
     (async () => {
@@ -151,6 +153,7 @@ export default function BillingTab() {
           setTruckCount(list[0].fleet_size || 1);
           setSelectedAddons(list[0].selected_addons || []);
           setDeviceQty(list[0].device_addon_qty || 0);
+          setTermId(list[0].billing_term || "monthly");
         }
         const trucks = await base44.entities.Truck.list().catch(() => []);
         if (trucks.length > 0) setTruckCount(trucks.length);
@@ -172,12 +175,18 @@ export default function BillingTab() {
     return sum + (a ? a.price * truckCount : 0);
   }, 0);
   const deviceMonthly = deviceQty * 369;
-  const planMonthly =
-    currentPlan === "starter"
-      ? 380 * truckCount
-      : currentPlan === "growth"
-        ? 320 * truckCount
-        : 0;
+  // Plan fee uses the recommended tier for this fleet size and the chosen
+  // term; the term discount applies to the plan fee only.
+  const basePrice =
+    recommendedPlan === "starter" ? 380 : recommendedPlan === "growth" ? 320 : 0;
+  const term = termById(termId);
+  const unitPrice = termPrice(basePrice, termId);
+  const planMonthly = unitPrice * truckCount;
+  const termSaving = (basePrice - unitPrice) * truckCount;
+  const termLocked =
+    profile?.term_end && new Date(profile.term_end) > new Date()
+      ? profile.term_end
+      : null;
   const totalMonthly = planMonthly + addonMonthly + deviceMonthly;
 
   const toggleAddon = (id) => {
@@ -193,17 +202,38 @@ export default function BillingTab() {
     }
     setSaving(true);
     try {
-      await base44.entities.CompanyProfile.update(profile.id, {
+      const base = {
         fleet_size: truckCount,
         selected_addons: selectedAddons,
         device_addon_qty: deviceQty,
         billing_plan: recommendedPlan,
-      });
+      };
+      const termChanged = termId !== (profile.billing_term || "monthly");
+      const start = new Date();
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + term.months);
+      const withTerm = {
+        ...base,
+        billing_term: termId,
+        ...(termChanged
+          ? {
+              term_start: start.toISOString().slice(0, 10),
+              term_end: term.months > 1 ? end.toISOString().slice(0, 10) : null,
+            }
+          : {}),
+      };
+      let saved;
+      try {
+        saved = await base44.entities.CompanyProfile.update(profile.id, withTerm);
+      } catch (err) {
+        // Database not yet migrated with the term columns — save the rest
+        if (!/billing_term|term_start|term_end|column/i.test(err.message || "")) throw err;
+        saved = await base44.entities.CompanyProfile.update(profile.id, base);
+      }
+      setProfile(saved);
       toast({
         title: "Billing configuration saved",
-        description: `Plan: 
-${recommendedPlan} · ${truckCount} trucks · ${selectedAddons.length} add-on(s) 
-· Total: R${totalMonthly.toLocaleString()}/month`,
+        description: `${recommendedPlan} · ${term.label} · ${truckCount} vehicles · R${totalMonthly.toLocaleString("en-ZA")}/month`,
       });
     } catch (e) {
       toast({
@@ -314,6 +344,63 @@ ${recommendedPlan} · ${truckCount} trucks · ${selectedAddons.length} add-on(s)
           </div>
         </CardContent>
       </Card>
+
+      {/* Contract term */}
+      <div>
+        <h2 className="mb-1 font-display text-lg font-semibold text-brand-navy">
+          Contract Term
+        </h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Commit for longer to lower and lock your plan fee. Add-ons and devices
+          are billed at the listed price on every term.
+          {termLocked &&
+            ` Your current term runs until ${new Date(termLocked).toLocaleDateString("en-ZA")}.`}
+        </p>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {TERMS.map((t) => {
+            const active = t.id === termId;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTermId(t.id)}
+                className={`relative rounded-xl border p-4 text-left transition ${
+                  active
+                    ? "border-brand-teal bg-brand-teal/5 ring-2 ring-brand-teal"
+                    : "border-border/60 bg-card hover:border-brand-teal/50"
+                }`}
+              >
+                {t.popular && (
+                  <span className="absolute -top-2 right-3 rounded-full bg-brand-teal px-2 py-0.5 text-[10px] font-bold text-white">
+                    Best value
+                  </span>
+                )}
+                <p className="text-sm font-semibold text-brand-navy">{t.label}</p>
+                <p className="text-xs font-semibold text-brand-teal">
+                  {t.discount ? `${t.discount * 100}% off plan fee` : "Standard price"}
+                </p>
+                {basePrice > 0 && (
+                  <p className="mt-2 font-display text-lg font-bold text-brand-navy">
+                    R{termPrice(basePrice, t.id)}
+                    <span className="text-xs font-normal text-muted-foreground"> /vehicle/month</span>
+                  </p>
+                )}
+                <ul className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
+                  {t.perks.slice(0, 3).map((perk) => (
+                    <li key={perk}>• {perk}</li>
+                  ))}
+                </ul>
+              </button>
+            );
+          })}
+        </div>
+        {termLocked && termId !== (profile?.billing_term || "monthly") && (
+          <p className="mt-2 text-xs font-medium text-amber-700">
+            Changing term during a committed period is agreed with TranziIQ in
+            writing. Leaving early repays only the discount received so far.
+          </p>
+        )}
+      </div>
 
       {/* Pricing plans */}
       <div>
@@ -595,10 +682,15 @@ text-xs font-medium transition ${
                 R{totalMonthly.toLocaleString()}
               </p>
               <p className="text-xs text-white/60 mt-1">
-                {recommendedPlan} plan ·{truckCount} truck
-                {truckCount !== 1 ? "s" : ""} · {selectedAddons.length}
-                add-on(s) · {deviceQty} device(s)
+                {recommendedPlan} plan · {term.label} · {truckCount} vehicle
+                {truckCount !== 1 ? "s" : ""} · {selectedAddons.length} add-on(s)
+                · {deviceQty} device(s)
               </p>
+              {termSaving > 0 && (
+                <p className="mt-1 text-xs font-semibold text-emerald-300">
+                  Saving R{termSaving.toLocaleString("en-ZA")}/month versus month to month
+                </p>
+              )}
             </div>
             <Button
               onClick={saveConfig}

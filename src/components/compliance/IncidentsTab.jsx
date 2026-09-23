@@ -61,7 +61,7 @@ export default function IncidentsTab({ incidents, onRefresh }) {
             </p>
             <p className="text-xs text-muted-foreground">
               Spills, temperature breaches, route deviations & time-window
-              violations. Map records to your own SHEQ/SHERQ numbering via the
+              violations. Map records to your own SHERQ numbering via the
               reference column.
             </p>
           </div>
@@ -97,7 +97,7 @@ export default function IncidentsTab({ incidents, onRefresh }) {
                 <TableHead>Load</TableHead>
                 <TableHead>Severity</TableHead>
                 <TableHead>Detected</TableHead>
-                <TableHead>SHEQ Ref</TableHead>
+                <TableHead>SHERQ Ref</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>

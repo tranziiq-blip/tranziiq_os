@@ -172,7 +172,7 @@ planned`,
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="font-display text-2xl font-bold tracking-tight  text-brand-navy">
-          SHEQ Management
+          SHERQ Management
         </h1>
         <p className="text-sm text-muted-foreground">
           Risk register · VFLs · toolbox talks · compliance · documents

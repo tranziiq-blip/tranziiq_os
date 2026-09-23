@@ -119,7 +119,7 @@ export const gateSummary = (profile) => {
   return evaluateGate(profile.documents_data);
 };
 
-// ---- Register numbering (tenant SHEQ mapping supported via sheq_reference field) ----
+// ---- Register numbering (tenant SHERQ mapping supported via sheq_reference field) ----
 export const registerNumber = (existingCount) =>
   `CC-INC-${new Date().getFullYear()}-${String(existingCount + 1).padStart(
     4,

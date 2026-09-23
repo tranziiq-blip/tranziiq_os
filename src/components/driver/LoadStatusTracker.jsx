@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,8 @@ import {
   Navigation,
   Globe,
   PenLine,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 
 const KEY_ICONS = {
@@ -34,6 +36,37 @@ const KEY_ICONS = {
   load_completed: Check,
 };
 
+// Statuses that mean "assigned but not started" — the first step is next.
+const PRE_START = new Set([
+  "accepting_load",
+  "pending",
+  "assigned",
+  "scheduled",
+  "planned",
+  "dispatched",
+  "new",
+  "open",
+]);
+
+// Colour per action, mirroring the Engineering job-card buttons
+const ACTION_STYLE = {
+  enroute_to_loading: "bg-indigo-600 hover:bg-indigo-700",
+  arrived_at_loading: "bg-cyan-600 hover:bg-cyan-700",
+  queue_to_load: "bg-amber-600 hover:bg-amber-700",
+  weighing_in_empty: "bg-slate-700 hover:bg-slate-800",
+  loading: "bg-blue-600 hover:bg-blue-700",
+  weighing_out_loaded: "bg-slate-700 hover:bg-slate-800",
+  at_border: "bg-orange-600 hover:bg-orange-700",
+  cleared: "bg-emerald-600 hover:bg-emerald-700",
+  enroute_to_offloading: "bg-indigo-600 hover:bg-indigo-700",
+  arrived_at_offloading: "bg-cyan-600 hover:bg-cyan-700",
+  queue_to_offload: "bg-amber-600 hover:bg-amber-700",
+  weighing_in_loaded: "bg-slate-700 hover:bg-slate-800",
+  offloading: "bg-blue-600 hover:bg-blue-700",
+  weighing_out_empty: "bg-slate-700 hover:bg-slate-800",
+  load_completed: "bg-emerald-600 hover:bg-emerald-700",
+};
+
 export default function LoadStatusTracker({
   load,
   onUpdated,
@@ -44,48 +77,76 @@ export default function LoadStatusTracker({
 }) {
   const { toast } = useToast();
   const [advancing, setAdvancing] = useState(false);
+  // Local copy so the screen moves on the instant the update succeeds,
+  // exactly like the job card, without waiting for the page to reload.
+  const [status, setStatus] = useState(load.status);
+  useEffect(() => setStatus(load.status), [load.id, load.status]);
 
   const sequence = getLoadSequence(load.cross_border);
-  const statusKey = LEGACY_STATUS_MAP[load.status] || load.status;
+  const statusKey = LEGACY_STATUS_MAP[status] || status;
+  const isCompleted = statusKey === "load_completed";
+  const notStarted = PRE_START.has(status) || !status;
   const currentStepIndex = sequence.findIndex((s) => s.key === statusKey);
-  const isCompleted = load.status === "load_completed";
-  const nextStep =
-    currentStepIndex >= 0 && !isCompleted
-      ? sequence[currentStepIndex + 1]
-      : null;
+  let nextStep = null;
+  if (!isCompleted) {
+    if (currentStepIndex >= 0) nextStep = sequence[currentStepIndex + 1];
+    else nextStep = sequence[0]; // not started or unknown dispatch status
+  }
   const completionBlocked =
     nextStep?.key === "load_completed" && !deliveryNoteSigned;
 
+  const saveStatus = async (key) => {
+    const now = new Date().toISOString();
+    const history = Array.isArray(load.status_history)
+      ? load.status_history
+      : [];
+    const full = {
+      status: key,
+      status_updated_at: now,
+      status_history: [...history, { status: key, at: now }],
+    };
+    try {
+      return await base44.entities.Load.update(load.id, full);
+    } catch (e) {
+      // Older databases without the history columns: save the status alone
+      if (/status_history|status_updated_at|column/i.test(e.message || "")) {
+        return base44.entities.Load.update(load.id, { status: key });
+      }
+      throw e;
+    }
+  };
+
   const advance = async () => {
-    if (!nextStep) return;
+    if (!nextStep || advancing) return;
     if (nextStep.key === "load_completed" && !deliveryNoteSigned) {
       toast({
         title: "Delivery note signature required",
-        description:
-          "Capture the  receiver's signature before completing the load",
+        description: "Capture the receiver's signature before completing the load",
       });
       onRequireDeliveryNote?.();
       return;
     }
+    const step = nextStep;
     setAdvancing(true);
     try {
-      await base44.entities.Load.update(load.id, { status: nextStep.key });
-      toast({ title: "Status updated", description: nextStep.label });
-      onUpdated?.();
-      if (nextStep.key === "load_completed" && onComplete) {
+      await saveStatus(step.key);
+      setStatus(step.key);
+      toast({ title: "Status updated", description: step.label });
+      if (step.key === "load_completed" && onComplete) {
         await onComplete();
       }
       if (
-        nextStep.key === "weighing_out_loaded" ||
-        nextStep.key === "weighing_out_empty"
+        step.key === "weighing_out_loaded" ||
+        step.key === "weighing_out_empty"
       ) {
         onWeighbillCapture?.(
-          nextStep.key === "weighing_out_loaded" ? "loaded" : "offloaded",
+          step.key === "weighing_out_loaded" ? "loaded" : "offloaded",
         );
       }
+      onUpdated?.();
     } catch (e) {
       toast({
-        title: "Error updating status",
+        title: "Could not update status",
         description: e.message,
         variant: "destructive",
       });
@@ -93,6 +154,8 @@ export default function LoadStatusTracker({
       setAdvancing(false);
     }
   };
+
+  const NextIcon = (nextStep && KEY_ICONS[nextStep.key]) || ChevronRight;
 
   return (
     <div className="space-y-4">
@@ -106,17 +169,18 @@ export default function LoadStatusTracker({
             ? "Load Completed"
             : currentStepIndex >= 0
               ? sequence[currentStepIndex].label
-              : load.status.replace(/_/g, " ")}
+              : notStarted
+                ? "Assigned — not started"
+                : String(status || "").replace(/_/g, " ")}
         </p>
         {nextStep && (
           <div className="mt-2 flex items-center gap-1.5 text-sm text-white/80">
             <ChevronRight size={14} /> Next: {nextStep.label}
           </div>
         )}
-        {currentStepIndex < 0 && !isCompleted && (
+        {currentStepIndex < 0 && !isCompleted && !notStarted && (
           <p className="mt-1 text-xs text-white/70">
-            This status is managed by dispatch — the load sequence resumes from
-            the next standard step.
+            Status set by dispatch — tap the button below to continue the trip.
           </p>
         )}
       </div>
@@ -137,25 +201,37 @@ export default function LoadStatusTracker({
         {load.cross_border ? " · cross-border route" : ""}
       </p>
 
-      {/* Single advance button (sequential, no dropdown) */}
+      {/* One contextual action button per stage — same pattern as job cards */}
       {nextStep && (
         <Button
+          type="button"
           onClick={advance}
           disabled={advancing}
-          className="w-full gap-2 bg-brand-teal hover:bg-brand-teal/90"
+          className={`h-12 w-full gap-2 text-base font-semibold text-white ${
+            completionBlocked
+              ? "bg-amber-600 hover:bg-amber-700"
+              : ACTION_STYLE[nextStep.key] || "bg-brand-teal hover:bg-brand-teal/90"
+          }`}
         >
           {advancing ? (
-            "Updating…"
+            <>
+              <Loader2 size={18} className="animate-spin" /> Updating…
+            </>
           ) : completionBlocked ? (
             <>
-              <PenLine size={16} /> Capture Signature — Complete Load
+              <PenLine size={18} /> Capture Signature — Complete Load
             </>
           ) : (
             <>
-              <ChevronRight size={16} /> Advance to: {nextStep.label}
+              <NextIcon size={18} /> {nextStep.label}
             </>
           )}
         </Button>
+      )}
+      {isCompleted && (
+        <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">
+          <CheckCircle2 size={18} /> Load completed
+        </div>
       )}
 
       {/* Step list */}
@@ -169,12 +245,10 @@ export default function LoadStatusTracker({
               return (
                 <div
                   key={step.key}
-                  className={`flex items-center gap-3 rounded-lg px-3 
-py-2.5 ${isCurrent ? "bg-brand-teal/10" : ""}`}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 ${isCurrent ? "bg-brand-teal/10" : ""}`}
                 >
                   <div
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center 
-rounded-full ${
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
                       isDone
                         ? "bg-emerald-500 text-white"
                         : isCurrent

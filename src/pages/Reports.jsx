@@ -58,7 +58,7 @@ const REPORT_TYPE_LABELS = {
   financial_summary: "Financial  Summary",
   load_activity: "Load Activity",
   maintenance_report: "Maintenance",
-  sheq_compliance: "SHEQ Compliance",
+  sheq_compliance: "SHERQ Compliance",
   driver_performance: "Driver Performance",
   fuel_analysis: "Fuel Analysis",
   client_summary: "Client Summary",

@@ -7,8 +7,11 @@ import {
   DEVICE,
   EXAMPLES,
   PLANS,
+  TERMS,
   formatRand,
   planForTrucks,
+  termById,
+  termPrice,
 } from "@/lib/siteConfig";
 
 const PROBLEMS = [
@@ -40,7 +43,7 @@ const ROLES = [
     what: "Job cards, service schedules by kilometre or date, tyre positions and tread depths, parts on hand and stock movements.",
   },
   {
-    who: "SHEQ and compliance",
+    who: "SHERQ and compliance",
     what: "Incidents, risk register, toolbox talks, visible felt leadership, shift risk assessments, and document expiry alerts for vehicles, trailers and people.",
   },
   {
@@ -117,6 +120,10 @@ const FAQS = [
     a: "Create an account, choose your type of operation, and we set up your fleet with you. Pilot scope, duration and pricing are agreed in writing with each operator before any billing starts.",
   },
   {
+    q: "Do I have to sign a long contract?",
+    a: "No. You can run month to month and cancel with 30 days' notice. If you commit to 12, 24 or 36 months, your per-vehicle plan fee drops by 7.5%, 12.5% or 15% and is locked for the whole term. If you need to leave a committed term early, you simply repay the discount you received so far, so you are never worse off than a monthly customer.",
+  },
+  {
     q: "Are prices fixed?",
     a: "Prices are per vehicle per month in rand, excluding VAT where it applies. Every plan includes all its modules; there is no per-module pricing. Fleets of 51 vehicles or more receive a tailored quote.",
   },
@@ -188,14 +195,16 @@ function WeighbridgeTicket() {
 function PriceCalculator({ trucks, setTrucks }) {
   const [addons, setAddons] = useState([]);
   const [devices, setDevices] = useState(false);
+  const [termId, setTermId] = useState("36m");
   const plan = planForTrucks(trucks);
+  const term = termById(termId);
 
   const lines = useMemo(() => {
     const out = [];
     if (plan.price)
       out.push([
-        `${plan.name} plan, ${trucks} ${trucks === 1 ? "vehicle" : "vehicles"}`,
-        plan.price * trucks,
+        `${plan.name} plan, ${trucks} ${trucks === 1 ? "vehicle" : "vehicles"} at ${formatRand(termPrice(plan.price, termId))}`,
+        termPrice(plan.price, termId) * trucks,
       ]);
     for (const id of addons) {
       const a = ADDONS.find((x) => x.id === id);
@@ -203,9 +212,12 @@ function PriceCalculator({ trucks, setTrucks }) {
     }
     if (devices) out.push([`${trucks} driver tablets`, DEVICE.price * trucks]);
     return out;
-  }, [plan, trucks, addons, devices]);
+  }, [plan, trucks, addons, devices, termId]);
 
   const total = lines.reduce((s, [, v]) => s + v, 0);
+  const monthlySaving = plan.price
+    ? (plan.price - termPrice(plan.price, termId)) * trucks
+    : 0;
   const toggle = (id) =>
     setAddons((cur) =>
       cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
@@ -227,6 +239,29 @@ function PriceCalculator({ trucks, setTrucks }) {
         <div className="calc__count">
           {trucks} {trucks === 1 ? "vehicle" : "vehicles"}
         </div>
+        <fieldset className="term-pick" aria-label="Contract term">
+          <legend>Contract term</legend>
+          <div className="term-pick__row">
+            {TERMS.map((t) => (
+              <label
+                key={t.id}
+                className={`term-pick__opt ${t.id === termId ? "is-on" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="term"
+                  value={t.id}
+                  checked={t.id === termId}
+                  onChange={() => setTermId(t.id)}
+                />
+                <span className="term-pick__name">{t.short}</span>
+                <span className="term-pick__off">
+                  {t.discount ? `${t.discount * 100}% off` : "No lock-in"}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <fieldset
           className="calc__opts"
           style={{ border: 0, padding: 0, margin: "18px 0 0" }}
@@ -271,8 +306,23 @@ function PriceCalculator({ trucks, setTrucks }) {
               ))}
             </dl>
             <div className="calc__sum">{formatRand(total)} a month</div>
+            {monthlySaving > 0 ? (
+              <p className="calc__save">
+                You save {formatRand(monthlySaving)} a month, or{" "}
+                {formatRand(monthlySaving * term.months)} over {term.months}{" "}
+                months, compared with month to month.
+              </p>
+            ) : (
+              <p className="calc__save calc__save--hint">
+                Commit to 36 months and save{" "}
+                {formatRand((plan.price - termPrice(plan.price, "36m")) * trucks)}{" "}
+                a month on your plan fee.
+              </p>
+            )}
             <p className="calc__fine">
-              Estimate in rand, excluding VAT where it applies.
+              Estimate in rand, excluding VAT where it applies. Term discounts
+              apply to the plan fee; add-ons and devices are billed at the
+              listed price.
             </p>
           </>
         ) : (
@@ -449,8 +499,9 @@ export default function Landing() {
               Pricing per vehicle
             </h2>
             <p className="site-body">
-              The rate drops as your fleet grows. Move the slider to see what
-              your fleet would cost each month.
+              The rate drops as your fleet grows, and again when you commit
+              for longer. Move the slider and pick a term to see your monthly
+              cost.
             </p>
           </div>
           <PriceCalculator trucks={trucks} setTrucks={setTrucks} />
@@ -465,7 +516,12 @@ export default function Landing() {
                 <p className="plan__price">
                   {p.price ? formatRand(p.price) : "Quote"}
                 </p>
-                <p className="plan__unit">{p.unit}</p>
+                <p className="plan__unit">{p.unit}, month to month</p>
+                {p.price && (
+                  <p className="plan__from">
+                    {formatRand(termPrice(p.price, "36m"))} on a 36-month plan
+                  </p>
+                )}
                 <ul>
                   {p.features.map((f) => (
                     <li key={f}>{f}</li>
@@ -473,6 +529,43 @@ export default function Landing() {
                 </ul>
               </div>
             ))}
+          </div>
+          <div className="terms" aria-labelledby="terms-title">
+            <h3 id="terms-title" className="site-h3">
+              Commit longer, pay less
+            </h3>
+            <p className="site-body" style={{ marginTop: 6 }}>
+              Every term includes the same software. Longer terms lock your
+              price and lower your plan fee.
+            </p>
+            <div className="terms__grid">
+              {TERMS.map((t) => (
+                <div
+                  key={t.id}
+                  className={`term-card ${t.popular ? "term-card--best" : ""}`}
+                >
+                  {t.popular && <span className="term-card__tag">Best value</span>}
+                  <p className="term-card__name">{t.label}</p>
+                  <p className="term-card__off">
+                    {t.discount ? `${t.discount * 100}% off plan fee` : "Standard price"}
+                  </p>
+                  <p className="term-card__prices">
+                    Starter {formatRand(termPrice(PLANS[0].price, t.id))} · Growth{" "}
+                    {formatRand(termPrice(PLANS[1].price, t.id))}
+                    <span> per vehicle a month</span>
+                  </p>
+                  <ul>
+                    {t.perks.map((perk) => (
+                      <li key={perk}>{perk}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <p className="calc__fine" style={{ marginTop: 12 }}>
+              Leaving a committed term early? You repay only the discount
+              received to date, never the remaining months.
+            </p>
           </div>
           <table className="addons">
             <caption>Add-ons</caption>

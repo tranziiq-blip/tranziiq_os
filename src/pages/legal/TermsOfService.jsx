@@ -152,7 +152,7 @@ const sections = [
     body: (
       <>
         <p>
-          Fees are charged per truck per month for your plan and add-ons, at the
+          Fees are charged per vehicle per month for your plan and add-ons, at the
           prices on our <a href="/#pricing">pricing page</a> or in your written
           quote. Prices are in South African rand and exclude VAT where it
           applies.
@@ -165,6 +165,7 @@ const sections = [
           </li>
           <li>
             We will give at least 30 days' written notice of any price increase.
+            Prices on a committed term do not increase during that term.
           </li>
         </ul>
       </>
@@ -176,10 +177,40 @@ const sections = [
     body: (
       <>
         <p>
-          Unless a signed agreement says otherwise, the service runs month to
-          month. Either party may cancel with 30 days' written notice. We may
-          end the agreement immediately if you materially breach these terms and
-          do not fix the breach within 14 days of notice.
+          You choose a term when you subscribe: month to month, or a committed
+          term of 12, 24 or 36 months. Unless a signed agreement says otherwise:
+        </p>
+        <ul>
+          <li>
+            <strong>Month to month.</strong> The service continues each month.
+            Either party may cancel with 30 days' written notice.
+          </li>
+          <li>
+            <strong>Committed terms.</strong> Your per-vehicle plan fee is
+            discounted (7.5% for 12 months, 12.5% for 24 months, 15% for 36
+            months) and fixed for the term. The discount applies to the plan fee
+            only, not to add-ons or devices. Vehicles you add during the term are
+            billed at the same discounted rate.
+          </li>
+          <li>
+            <strong>Ending a committed term early.</strong> You may cancel at
+            any time on 30 days' written notice. If you do, you pay back the
+            term discount you received up to the cancellation date, and nothing
+            further for the remaining months. This places you where you would
+            have been on month-to-month pricing.
+          </li>
+          <li>
+            <strong>End of a committed term.</strong> We will remind you in
+            writing between 40 and 80 business days before your term ends. If
+            you do not choose a new term, the service continues month to month
+            at the prices then current, and you may cancel with 30 days' notice.
+          </li>
+        </ul>
+        <p>
+          We may end the agreement immediately if you materially breach these
+          terms and do not fix the breach within 14 days of notice. Where the
+          Consumer Protection Act applies to you, nothing in this section limits
+          your rights under section 14 of that Act.
         </p>
         <p>
           After the agreement ends you can export your data for 90 days. After

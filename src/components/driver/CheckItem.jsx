@@ -3,9 +3,9 @@ import { Check, X, Minus } from "lucide-react";
 export default function CheckItem({ item, value, onChange }) {
   const btn = (active, color, Icon, val) => (
     <button
+      type="button"
       onClick={() => onChange(item.id, val)}
-      className={`flex h-8 w-8 items-center justify-center rounded-md border 
-transition ${active ? color : "border-border bg-card text-muted-foreground  hover:bg-muted"}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-md border transition ${active ? color : "border-border bg-card text-muted-foreground  hover:bg-muted"}`}
     >
       <Icon size={14} />
     </button>

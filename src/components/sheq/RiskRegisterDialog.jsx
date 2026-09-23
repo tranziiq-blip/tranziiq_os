@@ -262,7 +262,7 @@ ${RISK_RATINGS[inherentRating].color}`}
             <Input
               value={form.reviewed_by}
               onChange={(e) => set("reviewed_by", e.target.value)}
-              placeholder="SHEQ Manager name"
+              placeholder="SHERQ Manager name"
             />
           </Field>
           <Field label="Review Date">

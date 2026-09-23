@@ -86,6 +86,7 @@ const TABLE_MAP = {
   Trailer: "trailer",
   TrainingRequirement: "training_requirement",
   TransportManifest: "transport_manifest",
+  Truck: "truck",
   Tyre: "tyre",
   User: "profiles", // Base44's User entity maps to our profiles table
   VFL: "vfl",
@@ -98,31 +99,63 @@ const TABLE_MAP = {
 // ---------------------------------------------------------------
 // Generic entity CRUD factory — mimics Base44's per-entity methods
 // ---------------------------------------------------------------
+// Base44 used created_date / updated_date; our tables use created_at / updated_at.
+// Translate both ways so every existing component keeps working unchanged.
+const FIELD_ALIASES = { created_date: "created_at", updated_date: "updated_at" };
+const NO_UPDATED_AT = new Set(["profiles", "clearance_message", "notifications"]);
+
+const toColumn = (field) => FIELD_ALIASES[field] || field;
+
+function withAliases(row) {
+  if (!row || typeof row !== "object") return row;
+  return {
+    ...row,
+    created_date: row.created_date ?? row.created_at,
+    updated_date: row.updated_date ?? row.updated_at,
+  };
+}
+
+function cleanPayload(payload = {}) {
+  const out = {};
+  for (const [k, v] of Object.entries(payload)) {
+    if (k === "created_date" || k === "updated_date" || k === "id") continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+function applySort(query, sort) {
+  if (!sort || typeof sort !== "string") return query;
+  const desc = sort.startsWith("-");
+  const col = toColumn(desc ? sort.slice(1) : sort);
+  return query.order(col, { ascending: !desc, nullsFirst: false });
+}
+
 function makeEntityClient(table) {
   return {
-    // base44.entities.X.list() -> newest first, matches typical Base44 default
-    async list(sort = "-created_at") {
-      let query = supabase.from(table).select("*");
-      const desc = sort.startsWith("-");
-      const col = desc ? sort.slice(1) : sort;
-      query = query.order(col, { ascending: !desc });
+    // base44.entities.X.list(sort?, limit?) -> newest first by default
+    async list(sort = "-created_at", limit) {
+      let query = applySort(supabase.from(table).select("*"), sort);
+      if (Number(limit) > 0) query = query.limit(Number(limit));
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return (data || []).map(withAliases);
     },
 
-    // base44.entities.X.filter({ field: value, ... })
-    async filter(criteria = {}, sort = "-created_at") {
+    // base44.entities.X.filter({ field: value, ... }, sort?, limit?)
+    async filter(criteria = {}, sort = "-created_at", limit) {
       let query = supabase.from(table).select("*");
-      for (const [key, value] of Object.entries(criteria)) {
-        query = query.eq(key, value);
+      for (const [key, value] of Object.entries(criteria || {})) {
+        const col = toColumn(key);
+        if (value === null) query = query.is(col, null);
+        else if (Array.isArray(value)) query = query.in(col, value);
+        else query = query.eq(col, value);
       }
-      const desc = sort.startsWith("-");
-      const col = desc ? sort.slice(1) : sort;
-      query = query.order(col, { ascending: !desc });
+      query = applySort(query, sort);
+      if (Number(limit) > 0) query = query.limit(Number(limit));
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return (data || []).map(withAliases);
     },
 
     async get(id) {
@@ -132,28 +165,40 @@ function makeEntityClient(table) {
         .eq("id", id)
         .single();
       if (error) throw error;
-      return data;
+      return withAliases(data);
     },
 
     async create(payload) {
       const { data, error } = await supabase
         .from(table)
-        .insert(payload)
+        .insert(cleanPayload(payload))
         .select()
         .single();
       if (error) throw error;
-      return data;
+      return withAliases(data);
+    },
+
+    async bulkCreate(rows = []) {
+      if (!rows.length) return [];
+      const { data, error } = await supabase
+        .from(table)
+        .insert(rows.map(cleanPayload))
+        .select();
+      if (error) throw error;
+      return (data || []).map(withAliases);
     },
 
     async update(id, payload) {
+      const body = cleanPayload(payload);
+      if (!NO_UPDATED_AT.has(table)) body.updated_at = new Date().toISOString();
       const { data, error } = await supabase
         .from(table)
-        .update({ ...payload, updated_at: new Date().toISOString() })
+        .update(body)
         .eq("id", id)
         .select()
         .single();
       if (error) throw error;
-      return data;
+      return withAliases(data);
     },
 
     async delete(id) {

@@ -145,7 +145,7 @@ export default function RiskAssessmentDialog({
       toast({
         title: "Risk assessment submitted",
         description: `Risk level: 
-${riskLevel.toUpperCase()}${form.newRiskFlagged ? " · New risk flagged for  SHEQ" : ""}`,
+${riskLevel.toUpperCase()}${form.newRiskFlagged ? " · New risk flagged for  SHERQ" : ""}`,
       });
       onComplete?.();
       onOpenChange(false);
@@ -283,7 +283,7 @@ ${riskLevel.toUpperCase()}${form.newRiskFlagged ? " · New risk flagged for  SHE
                 value={form.newRiskDescription}
                 onChange={(e) => set("newRiskDescription", e.target.value)}
                 rows={2}
-                placeholder="Describe the  new risk for SHEQ to review…"
+                placeholder="Describe the  new risk for SHERQ to review…"
                 className="mt-2"
               />
             )}

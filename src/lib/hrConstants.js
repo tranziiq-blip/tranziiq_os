@@ -2,7 +2,7 @@ export const DEPARTMENTS = [
   "Production",
   "Engineering",
   "Transport",
-  "SHEQ",
+  "SHERQ",
   "Stores",
   "HR",
   "Finance",

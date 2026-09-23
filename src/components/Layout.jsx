@@ -48,7 +48,7 @@ const ACTIVE = [
   { to: "/engineering", label: "Engineering", icon: Wrench },
   {
     to: "/safety",
-    label: "SHEQ",
+    label: "SHERQ",
     icon: ShieldCheck,
     children: [
       { to: "/compliance", label: "Compliance", icon: ClipboardCheck },

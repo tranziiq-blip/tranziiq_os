@@ -1,3 +1,4 @@
+import { get200PointInspection } from "./inspection200";
 export const TRUCK_SERVICE_SECTIONS = [
   {
     id: "engine",
@@ -446,8 +447,7 @@ const withTyrePositions = (sections, tyrePositions) => {
             ...s.items.filter((it) => !AGGREGATE_TYRE_IDS.includes(it.id)),
             ...tyrePositions.map((p, i) => ({
               id: `ty_pos_${i}`,
-              label: `Tyre — ${p}: 
-pressure, tread & damage`,
+              label: `Tyre — ${p}: pressure, tread & damage`,
               isTyre: true,
             })),
           ],
@@ -456,6 +456,8 @@ pressure, tread & damage`,
 };
 
 export const getEngineeringChecklist = (assetType, jobType, tyrePositions) => {
+  // Inspections are a fixed 200-point check for both trucks and trailers
+  if (jobType === "inspection") return get200PointInspection(assetType);
   const base =
     assetType === "trailer"
       ? TRAILER_SERVICE_SECTIONS

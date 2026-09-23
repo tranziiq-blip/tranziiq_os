@@ -4,7 +4,7 @@ export const MODULES = [
   { key: "driver_mobile", label: "Driver Mobile", route: "/driver" },
   { key: "production", label: "Production", route: "/production" },
   { key: "engineering", label: "Engineering", route: "/engineering" },
-  { key: "sheq", label: "SHEQ", route: "/safety" },
+  { key: "sheq", label: "SHERQ", route: "/safety" },
   { key: "stores", label: "Stores", route: "/stores" },
   { key: "hr", label: "HR", route: "/hr" },
   { key: "finance", label: "Finance", route: "/finance" },
