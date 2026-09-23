@@ -89,7 +89,7 @@ const TABLE_MAP = {
   Truck: "truck",
   Tyre: "tyre",
   User: "profiles", // Base44's User entity maps to our profiles table
-  VFL: "vfl",
+  VFL: "v_f_l",
   Weighbill: "weighbill",
   AbnormalLoadPermit: "abnormal_load_permit",
   BankTransaction: "bank_transaction",
@@ -384,9 +384,51 @@ const functionsApi = {
   },
 };
 
+// Staff invitations. The invited person signs up with the same email and is
+// placed in the inviting company automatically (database trigger).
+const users = {
+  async inviteUser(email, role = "user", extra = {}) {
+    const clean = String(email || "").trim().toLowerCase();
+    if (!clean) throw new Error("Email required");
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("email", clean)
+      .maybeSingle();
+    if (existing) throw new Error("This person already has an account in your company");
+    const { data, error } = await supabase
+      .from("org_invites")
+      .insert({
+        email: clean,
+        role,
+        module_access: extra.module_access?.length ? extra.module_access : null,
+        linked_client_name: extra.linked_client_name || null,
+        linked_directory_id: extra.linked_directory_id || null,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async listInvites() {
+    const { data, error } = await supabase
+      .from("org_invites")
+      .select("*")
+      .is("accepted_at", null)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+  async cancelInvite(id) {
+    const { error } = await supabase.from("org_invites").delete().eq("id", id);
+    if (error) throw error;
+  },
+};
+
 export const base44 = {
   entities,
   auth,
+  users,
   integrations,
   functions: functionsApi,
 };

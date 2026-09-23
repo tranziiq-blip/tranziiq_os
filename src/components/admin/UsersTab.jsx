@@ -35,6 +35,20 @@ export default function UsersTab() {
   const [editAccess, setEditAccess] = useState([]);
   const [directoryClients, setDirectoryClients] = useState([]);
   const [inviteClientId, setInviteClientId] = useState("");
+  const [invites, setInvites] = useState([]);
+  const loadInvites = () =>
+    base44.users.listInvites().then(setInvites).catch(() => setInvites([]));
+  useEffect(() => {
+    loadInvites();
+  }, []);
+  const cancelInvite = async (id) => {
+    try {
+      await base44.users.cancelInvite(id);
+      loadInvites();
+    } catch (e) {
+      toast({ title: "Could not cancel", description: e.message, variant: "destructive" });
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -54,6 +68,7 @@ export default function UsersTab() {
   }, []);
 
   const refresh = async () => {
+    loadInvites();
     setUsers(await base44.entities.User.list());
     setDirectoryClients(
       await base44.entities.BusinessDirectory.filter({
@@ -85,37 +100,24 @@ export default function UsersTab() {
     }
     setInviting(true);
     try {
-      await base44.users.inviteUser(inviteEmail, inviteRole);
-      await new Promise((r) => setTimeout(r, 500));
-      const updated = await base44.entities.User.list();
-      const newUser = updated.find((u) => u.email === inviteEmail);
-      if (newUser) {
-        const updates = {};
-        if (inviteAccess.length > 0) updates.module_access = inviteAccess;
-        if (inviteRole === "client" && inviteClientId) {
-          const client = directoryClients.find((c) => c.id === inviteClientId);
-          if (client) {
-            updates.linked_client_name = client.name;
-            updates.linked_directory_id = client.id;
-          }
-        }
-        if (Object.keys(updates).length > 0)
-          await base44.entities.User.update(newUser.id, updates);
-        if (inviteRole === "client" && inviteClientId) {
-          await base44.entities.BusinessDirectory.update(inviteClientId, {
-            portal_access_email: inviteEmail,
-            portal_user_id: newUser.id,
-            portal_access_enabled: true,
-          });
-        }
+      const client =
+        inviteRole === "client"
+          ? directoryClients.find((c) => c.id === inviteClientId)
+          : null;
+      await base44.users.inviteUser(inviteEmail, inviteRole, {
+        module_access: inviteAccess,
+        linked_client_name: client?.name,
+        linked_directory_id: client?.id,
+      });
+      if (client) {
+        await base44.entities.BusinessDirectory.update(client.id, {
+          portal_access_email: inviteEmail,
+          portal_access_enabled: true,
+        }).catch(() => {});
       }
       toast({
-        title: "Invitation sent",
-        description:
-          inviteRole === "client"
-            ? `${inviteEmail} invited as client portal user`
-            : `${inviteEmail} has been 
-invited`,
+        title: "Invitation created",
+        description: `Ask ${inviteEmail} to sign up at ${window.location.origin}/register using this email. They will join your company automatically.`,
       });
       setInviteEmail("");
       setInviteAccess([]);
@@ -208,7 +210,7 @@ invited`,
               disabled={inviting}
               className="gap-2"
             >
-              <UserPlus size={16} /> {inviting ? "Sending…" : "Send  Invite"}
+              <UserPlus size={16} /> {inviting ? "Saving…" : "Invite"}
             </Button>
           </div>
 
@@ -265,6 +267,44 @@ invited`,
           )}
         </CardContent>
       </Card>
+
+      {/* Pending invitations */}
+      {invites.length > 0 && (
+        <Card className="border-border/60 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">
+              Pending Invitations ({invites.length})
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Each person signs up at {window.location.origin}/register with the
+              invited email and joins your company automatically.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {invites.map((inv) => (
+              <div
+                key={inv.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{inv.email}</p>
+                  <p className="text-xs capitalize text-muted-foreground">
+                    {String(inv.role).replace("_", " ")} · invited{" "}
+                    {new Date(inv.created_at).toLocaleDateString("en-ZA")}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => cancelInvite(inv.id)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* User list */}
       <Card className="border-border/60 shadow-sm">

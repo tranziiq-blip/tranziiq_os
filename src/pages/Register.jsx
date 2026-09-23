@@ -34,6 +34,7 @@ export default function Register() {
   const [showOtp, setShowOtp] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [operationType, setOperationType] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [agreed, setAgreed] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -50,6 +51,7 @@ export default function Register() {
         password,
         metadata: {
           operation_type: operationType,
+          company_name: companyName.trim(),
           terms_version: LEGAL.termsVersion,
           privacy_version: LEGAL.privacyVersion,
           terms_accepted_at: new Date().toISOString(),
@@ -224,7 +226,21 @@ export default function Register() {
         </div>
       )}{" "}
       <form onSubmit={handleSubmit} className="space-y-4">
-        {" "}
+        <div className="space-y-2">
+          <Label htmlFor="company">Company name</Label>
+          <Input
+            id="company"
+            autoComplete="organization"
+            placeholder="e.g. Maoba Haulage (Pty) Ltd"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            className="h-12"
+          />
+          <p className="text-xs text-muted-foreground">
+            Joining a colleague's company? Leave this blank and sign up with the
+            email they invited.
+          </p>
+        </div>
         <div className="space-y-2">
           {" "}
           <Label htmlFor="email">Email</Label>{" "}
@@ -238,7 +254,6 @@ export default function Register() {
               id="email"
               type="email"
               autoComplete="email"
-              autoFocus
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
