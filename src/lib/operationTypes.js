@@ -1,0 +1,109 @@
+export const OPERATION_TYPES = [
+ {
+ key: "mining_bulk",
+ label: "Mining Bulk Logistics",
+ description: "Chrome, manganese, coal, iron ore — tipper & side-tipper  operations",
+ fleetType: "mining_bulk",
+ modules: ["command_center", "production", "engineering", "sheq", "stores", 
+"hr", "finance", "reports", "driver_mobile", "billing"],
+ recommendedAddons: []
+ },
+ {
+ key: "tautliner_general",
+ label: "Tautliner / General Freight",
+ description: "Curtain-sided palletized cargo, national & cross-border",
+ fleetType: "tautliner",
+ modules: ["command_center", "production", "engineering", "sheq", "stores", 
+"hr", "finance", "reports", "driver_mobile", "client_portal", "billing", 
+"weighbill"],
+ recommendedAddons: []
+ },
+ {
+ key: "refrigerated",
+ label: "Refrigerated / Cold Chain",
+ description: "Temperature-controlled perishables, pharma & food",
+ fleetType: "reefer",
+ modules: ["command_center", "production", "engineering", "sheq", "stores", 
+"hr", "finance", "reports", "driver_mobile", "client_portal", "billing"],
+ recommendedAddons: ["cold_chain"]
+ },
+ {
+ key: "petroleum_dg",
+ label: "Petroleum Tanker / DG",
+ description: "Fuel, chemicals & hazardous materials transportation",
+ fleetType: "petroleum_tanker",
+ modules: ["command_center", "production", "engineering", "sheq", "stores", 
+"hr", "finance", "reports", "driver_mobile", "billing"],
+ recommendedAddons: ["dg_hazmat"]
+ },
+ {
+ key: "gas_lpg",
+ label: "Gas Tanker (LPG)",
+ description: "Liquefied petroleum gas & compressed gas transport",
+ fleetType: "gas_tanker",
+ modules: ["command_center", "production", "engineering", "sheq", "stores", 
+"hr", "finance", "reports", "driver_mobile", "billing"],
+ recommendedAddons: ["dg_hazmat"]
+ },
+ {
+ key: "food_grade",
+ label: "Food-Grade Tanker",
+ description: "Milk, juice, edible oils — food safety compliance",
+ fleetType: "food_grade_tanker",
+ modules: ["command_center", "production", "engineering", "sheq", "stores", 
+"hr", "finance", "reports", "driver_mobile", "billing"],
+ recommendedAddons: []
+ },
+ {
+ key: "cement_bulk",
+ label: "Cement / Bulk Powder",
+ description: "Cement, lime, ash — pneumatic discharge operations",
+ fleetType: "cement_bulk",
+ modules: ["command_center", "production", "engineering", "sheq", "stores", 
+"hr", "finance", "reports", "driver_mobile", "billing"],
+ recommendedAddons: []
+ },
+ {
+ key: "low_bed_abnormal",
+ label: "Low-Bed / Abnormal Load",
+ description: "Heavy machinery, oversized cargo, escort coordination",
+ fleetType: "low_bed",
+ modules: ["command_center", "production", "engineering", "sheq", "stores", 
+"hr", "finance", "reports", "driver_mobile", "billing"],
+ recommendedAddons: ["abnormal_load"]
+ },
+ {
+ key: "flatbed",
+ label: "Flatbed / Container",
+ description: "Containers, steel, machinery — flatbed & skeletal",
+ fleetType: "flatbed",
+ modules: ["command_center", "production", "engineering", "sheq", "stores", 
+"hr", "finance", "reports", "driver_mobile", "client_portal", "billing"],
+ recommendedAddons: []
+ },
+ {
+ key: "mixed_multimodal",
+ label: "Mixed / Multi-Modal",
+ description: "Multiple fleet types, diverse cargo operations",
+ fleetType: "tautliner",
+ modules: ["command_center", "production", "engineering", "sheq", "stores", 
+"hr", "finance", "reports", "driver_mobile", "client_portal", "billing", 
+"weighbill", "integrations"],
+ recommendedAddons: []
+ }
+];
+
+export const getOperationType = (key) => OPERATION_TYPES.find((t) => t.key === 
+key) || null;
+
+export const PLAN_THRESHOLDS = {
+ starter: { min: 1, max: 15, label: "1–15 trucks" },
+ growth: { min: 16, max: 50, label: "16–50 trucks" },
+ enterprise: { min: 51, max: null, label: "51+ trucks" }
+};
+
+export const getPlanForTruckCount = (count) => {
+ if (count <= 15) return "starter";
+ if (count <= 50) return "growth";
+ return "enterprise";
+};
