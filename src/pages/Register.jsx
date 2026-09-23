@@ -45,7 +45,7 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      await base44.auth.register({
+      const result = await base44.auth.register({
         email,
         password,
         metadata: {
@@ -55,6 +55,11 @@ export default function Register() {
           terms_accepted_at: new Date().toISOString(),
         },
       });
+      // If email confirmation is switched off, Supabase signs in immediately.
+      if (result?.session) {
+        window.location.href = "/onboarding";
+        return;
+      }
       setShowOtp(true);
     } catch (err) {
       setError(err.message || "Registration failed");
@@ -91,8 +96,8 @@ export default function Register() {
     try {
       await base44.auth.resendOtp(email);
       toast({
-        title: "Code sent",
-        description: "Check your email for the new code.",
+        title: "Email sent",
+        description: "Check your inbox (and spam folder) for the new email.",
       });
     } catch (err) {
       setError(err.message || "Failed to resend code");
@@ -107,9 +112,16 @@ export default function Register() {
     return (
       <AuthLayout
         icon={Mail}
-        title="Verify your email"
-        subtitle={`We sent a code to ${email}`}
+        title="Check your email"
+        subtitle={`We sent a confirmation email to ${email}`}
       >
+        <p className="text-sm text-muted-foreground text-center mb-5">
+          Open the email and tap <strong>Confirm your mail</strong>. You'll be
+          signed in and taken straight to setup. You can close this page.
+        </p>
+        <p className="text-xs text-muted-foreground text-center mb-3">
+          If your email shows a 6-digit code instead, enter it here:
+        </p>
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive  text-sm">
             {error}
@@ -148,7 +160,7 @@ export default function Register() {
           )}
         </Button>
         <p className="text-center text-sm text-muted-foreground mt-4">
-          Didn't receive the code?{" "}
+          Didn't receive the email?{" "}
           <button
             onClick={handleResend}
             className="text-primary font-medium  hover:underline"

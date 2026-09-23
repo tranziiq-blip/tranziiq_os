@@ -226,7 +226,12 @@ const auth = {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: metadata ? { data: metadata } : undefined,
+      options: {
+        ...(metadata ? { data: metadata } : {}),
+        // The default Supabase email contains a confirmation link, not a code.
+        // Send that link back to this site so clicking it signs the user in.
+        emailRedirectTo: `${window.location.origin}/onboarding`,
+      },
     });
     if (error) throw error;
     return data;
@@ -244,7 +249,11 @@ const auth = {
   },
 
   async resendOtp(email) {
-    const { error } = await supabase.auth.resend({ type: "signup", email });
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/onboarding` },
+    });
     if (error) throw error;
   },
 
