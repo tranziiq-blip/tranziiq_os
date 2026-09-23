@@ -153,6 +153,3 @@ trucks={trucks} trailers={trailers} onSaved={onDataChanged} />
  </div>
  );
 }
-
-
-finance

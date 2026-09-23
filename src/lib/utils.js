@@ -7,7 +7,3 @@ export function cn(...inputs) {
 
 
 export const isIframe = window.self !== window.top;
-
-
-pages
- driver

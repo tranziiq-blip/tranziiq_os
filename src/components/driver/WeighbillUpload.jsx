@@ -185,6 +185,3 @@ onChange={handlePhoto} className="hidden" />
  </Card>
  );
 }
-
-
-engineering

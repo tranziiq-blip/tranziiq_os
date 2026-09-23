@@ -31,6 +31,3 @@ administrator to request access.
 };
 
 export default UserNotRegisteredError;
-
-
-hooks
