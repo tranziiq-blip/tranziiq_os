@@ -261,7 +261,25 @@ transition-all ${
         <TrialBanner />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-7xl p-4 lg:p-8">
-            <Outlet />
+            {userHasAccess(user, location.pathname) ? (
+              <Outlet />
+            ) : (
+              <div className="mx-auto mt-16 max-w-md rounded-xl border border-border/60 bg-card p-8 text-center shadow-sm">
+                <p className="font-display text-lg font-semibold text-brand-navy">
+                  You don't have access to this page
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Ask your company owner to give you access to this module
+                  under Admin → Users.
+                </p>
+                <button
+                  onClick={() => navigate("/")}
+                  className="mt-5 rounded-lg bg-brand-navy px-4 py-2 text-sm font-medium text-white hover:bg-brand-navy/90"
+                >
+                  Go to the Command Center
+                </button>
+              </div>
+            )}
           </div>
         </main>
       </div>

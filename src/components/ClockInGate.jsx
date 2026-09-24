@@ -40,7 +40,10 @@ export default function ClockInGate({ children }) {
 
   useEffect(() => {
     if (!user?.id) return;
-    if (["client", "clearing_agent"].includes(user.role)) {
+    // Only drivers clock in and do the shift risk assessment. The owner and
+    // office staff (finance, HR, dispatch, workshop admin) go straight in.
+    const isDriver = (user.module_access || []).includes("driver_mobile");
+    if (["client", "clearing_agent", "admin"].includes(user.role) || !isDriver) {
       setPhase("done");
       return;
     }

@@ -45,6 +45,14 @@ const empty = {
   tyre_positions: [],
 };
 
+// Defined outside the form so inputs keep focus while typing
+const Field = ({ label, children, full }) => (
+  <div className={`grid gap-1.5 ${full ? "col-span-2" : ""}`}>
+    <Label className="text-xs">{label}</Label>
+    {children}
+  </div>
+);
+
 export default function TruckFormDialog({
   open,
   onOpenChange,
@@ -92,13 +100,6 @@ export default function TruckFormDialog({
     };
     onSaved(payload);
   };
-
-  const Field = ({ label, children, full }) => (
-    <div className={`grid gap-1.5 ${full ? "col-span-2" : ""}`}>
-      <Label className="text-xs">{label}</Label>
-      {children}
-    </div>
-  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

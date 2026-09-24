@@ -42,7 +42,7 @@ const empty = {
   pickup_date: "",
   delivery_date: "",
   weight_tons: "",
-  rate: "",
+  route_id: "",
   truck_id: "",
   driver_id: "",
   cross_border: false,
@@ -58,18 +58,35 @@ export default function Loads() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [routes, setRoutes] = useState([]);
+  const pickRoute = (id) => {
+    const r = routes.find((x) => x.id === id);
+    if (!r) return setForm((f) => ({ ...f, route_id: "" }));
+    setForm((f) => ({
+      ...f,
+      route_id: r.id,
+      client: r.client || f.client,
+      origin: r.origin || f.origin,
+      destination: r.destination || f.destination,
+      cargo_type: r.cargo_type || f.cargo_type,
+      cross_border: r.cross_border ?? f.cross_border,
+      border_post: r.border_post || f.border_post,
+    }));
+  };
   const [form, setForm] = useState(empty);
   const [profiles, setProfiles] = useState([]);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [l, t, d, cps] = await Promise.all([
+      const [l, t, d, cps, rts] = await Promise.all([
         base44.entities.Load.list("-created_date"),
         base44.entities.Truck.filter({ status: "active" }),
         base44.entities.Driver.filter({ status: "active" }),
         base44.entities.ComplianceProfile.list("-created_date"),
+        base44.entities.Route.filter({ active: true }, "name").catch(() => []),
       ]);
+      setRoutes(rts);
       setLoads(l);
       setTrucks(t);
       setDrivers(d);
@@ -89,7 +106,7 @@ export default function Loads() {
   };
   const openEdit = (l) => {
     setEditing(l);
-    setForm({ ...l, weight_tons: l.weight_tons ?? "", rate: l.rate ?? "" });
+    setForm({ ...l, weight_tons: l.weight_tons ?? "", route_id: l.route_id || "" });
     setOpen(true);
   };
 
@@ -98,10 +115,11 @@ export default function Loads() {
       toast({ title: "Load number required", variant: "destructive" });
       return;
     }
+    const { rate: _noRate, ...rest } = form; // rates never travel with a load
     const payload = {
-      ...form,
+      ...rest,
+      route_id: form.route_id || null,
       weight_tons: form.weight_tons ? Number(form.weight_tons) : undefined,
-      rate: form.rate ? Number(form.rate) : undefined,
     };
     if (!editing) payload.status = "accepting_load";
     try {
@@ -183,7 +201,6 @@ export default function Loads() {
                   <TableHead>Cargo</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Weight</TableHead>
-                  <TableHead>Rate</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -272,9 +289,6 @@ ${meta.color}`}
                       <TableCell>
                         {l.weight_tons ? `${l.weight_tons} t` : "—"}
                       </TableCell>
-                      <TableCell>
-                        {l.rate ? `R ${Number(l.rate).toLocaleString()}` : "—"}
-                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <button
@@ -308,6 +322,28 @@ ${meta.color}`}
             </DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-1">
+            <div className="col-span-2 grid gap-1.5">
+              <Label className="text-xs">Route</Label>
+              <Select value={form.route_id || "none"} onValueChange={(v) => pickRoute(v === "none" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a route" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No route (enter details manually)</SelectItem>
+                  {routes.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                      {r.client ? ` · ${r.client}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                {routes.length
+                  ? "Client, origin and destination fill in from the route. The agreed rate is applied automatically."
+                  : "No routes yet. Routes and rates are set by the owner or operations manager under Admin → Directory."}
+              </p>
+            </div>
             <div className="grid gap-1.5">
               <Label className="text-xs">Load Number</Label>
               <Input
@@ -437,19 +473,6 @@ ${meta.color}`}
                 value={form.weight_tons}
                 onChange={(e) =>
                   setForm({ ...form, weight_tons: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label className="text-xs">Rate (R)</Label>
-              <Input
-                type="number"
-                value={form.rate}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    rate: e.target.value,
-                  })
                 }
               />
             </div>

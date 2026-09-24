@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
+import { canSeeFinance } from "@/lib/financeAccess";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -58,6 +60,8 @@ export default function Dashboard() {
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [showRecs, setShowRecs] = useState(false);
+  const { user } = useAuth();
+  const showMoney = canSeeFinance(user);
 
   useEffect(() => {
     (async () => {
@@ -179,7 +183,7 @@ export default function Dashboard() {
     { name: "HR", kpi: `${activeEmployees || drivers.length} staff`, sub: credsDue.length ? `${credsDue.length} credential${credsDue.length === 1 ? "" : "s"} due within 30 days` : "No credentials due", warn: credsDue.length > 0 },
     { name: "SHERQ", kpi: complianceScore !== null ? `${complianceScore}% compliant` : "Not assessed", sub: complianceScore !== null ? `${openRisks} open risk${openRisks === 1 ? "" : "s"}` : "Add risks and documents to score", warn: highOpen.length > 0 },
     { name: "Stores", kpi: `${compactRand(stockValue)} stock`, sub: lowStock.length ? `${lowStock.length} item${lowStock.length === 1 ? "" : "s"} at reorder level` : `${activeParts.length} parts listed`, warn: lowStock.length > 0 },
-    { name: "Finance", kpi: cpk !== null ? `CPK R ${cpk.toFixed(2)}` : "CPK —", sub: cpk !== null ? `${Math.round(km30).toLocaleString("en-ZA")} km, last 30 days` : "Needs costs and km driven", warn: false },
+    showMoney && { name: "Finance", kpi: cpk !== null ? `CPK R ${cpk.toFixed(2)}` : "CPK —", sub: cpk !== null ? `${Math.round(km30).toLocaleString("en-ZA")} km, last 30 days` : "Needs costs and km driven", warn: false },
   ];
 
   // Alerts — generated from real records, most urgent first
@@ -226,7 +230,7 @@ export default function Dashboard() {
       const h = last ? (now - last) / 3600000 : 0;
       if (h >= 12) push(0, `Load ${l.load_number || ""} has had no status update for ${Math.round(h)}h`, "/loads");
     });
-  if (overdueInv.length)
+  if (showMoney && overdueInv.length)
     push(0, `${overdueInv.length} overdue invoice${overdueInv.length === 1 ? "" : "s"} worth ${rand(overdueInv.reduce((s, i) => s + invTotal(i), 0))}`, "/finance");
   if (lowStock.length) push(3, `${lowStock.length} stock item${lowStock.length === 1 ? "" : "s"} at or below reorder level`, "/stores");
   if (highOpen.length) push(0, `${highOpen.length} high or critical risk${highOpen.length === 1 ? "" : "s"} still open`, "/safety");
@@ -278,7 +282,7 @@ export default function Dashboard() {
                     </span>
                   </p>
                   <p className="mt-1 text-sm text-white/80">
-                    {overdueValue > 0 ? `${rand(overdueValue)} in overdue invoices · ` : ""}
+                    {showMoney && overdueValue > 0 ? `${rand(overdueValue)} in overdue invoices · ` : ""}
                     {inTransit} load{inTransit === 1 ? "" : "s"} on the road · {openJobs.length} open job card{openJobs.length === 1 ? "" : "s"}
                   </p>
                 </>
@@ -492,7 +496,8 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Financial Health */}
+      {/* Financial Health — owner, operations and finance only */}
+      {showMoney && (
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5">
@@ -569,6 +574,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Department snapshots */}
       <div>
@@ -576,7 +582,7 @@ export default function Dashboard() {
           Department Snapshots
         </h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-          {departments.map((d) => (
+          {departments.filter(Boolean).map((d) => (
             <Card key={d.name} className="border-border/60 shadow-sm">
               <CardContent className="p-4">
                 <p className="text-xs font-medium text-muted-foreground">{d.name}</p>
@@ -620,7 +626,7 @@ export default function Dashboard() {
             </ul>
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">
-              Expiring licences, overdue services, fatigue limits, stalled loads and overdue invoices will be flagged here automatically.
+              Expiring licences, overdue services, fatigue limits and stalled loads will be flagged here automatically.
             </p>
           )}
         </CardContent>

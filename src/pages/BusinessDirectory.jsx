@@ -38,6 +38,7 @@ import {
   Truck,
   Route,
 } from "lucide-react";
+import RoutesRatesPanel from "@/components/admin/RoutesRatesPanel";
 
 const ENTITY_TYPES = {
   client: {
@@ -173,6 +174,8 @@ export default function BusinessDirectory() {
           <Plus size={16} /> Add Entry
         </Button>
       </div>
+
+      <RoutesRatesPanel clients={entries.filter((e) => (e.entity_type || "client") === "client")} />
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap h-auto">

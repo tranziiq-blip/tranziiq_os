@@ -140,6 +140,9 @@ const TABLE_MAP = {
   TrainingRequirement: "training_requirement",
   TransportManifest: "transport_manifest",
   Truck: "truck",
+  Route: "route",
+  RouteRate: "route_rate",
+  LoadCharge: "load_charge",
   Tyre: "tyre",
   User: "profiles", // Base44's User entity maps to our profiles table
   VFL: "v_f_l",

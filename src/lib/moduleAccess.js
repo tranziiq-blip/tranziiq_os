@@ -21,11 +21,20 @@ export const MODULES = [
   { key: "weighbill", label: "Freight Clearance Portal", route: "/weighbill" },
 ];
 
+// Money and management areas are never opened by default: a staff
+// member only gets them when the owner ticks that module for them.
+const RESTRICTED = ["finance", "admin", "billing"];
+
 export function userHasAccess(user, route) {
   if (!user) return true;
   if (user.role === "admin") return true;
+  // The client directory (routes, rates, client terms) lives under Admin
+  if (route === "/directory" || route.startsWith("/directory/")) route = "/admin";
   const access = user.module_access;
-  if (!access || access.length === 0) return true;
+  if (!access || access.length === 0) {
+    const mod = MODULES.find((m) => route === m.route || (m.route !== "/" && route.startsWith(m.route)));
+    return !mod || !RESTRICTED.includes(mod.key);
+  }
   const mod = MODULES.find(
     (m) =>
       route === m.route ||

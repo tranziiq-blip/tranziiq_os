@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X, Plus, Mail } from "lucide-react";
+import { useAuth } from "@/lib/AuthContext";
+import { canSeeFinance } from "@/lib/financeAccess";
 
 const REPORT_TYPES = [
   { value: "fleet_performance", label: "Fleet Performance" },
@@ -130,6 +132,7 @@ export default function ReportBuilderDialog({
   editing,
   onSaved,
 }) {
+  const { user: authUser } = useAuth();
   const [form, setForm] = useState(empty);
   const [newEmail, setNewEmail] = useState("");
 
@@ -220,7 +223,7 @@ export default function ReportBuilderDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {REPORT_TYPES.map((t) => (
+                {REPORT_TYPES.filter((t) => t.value !== "financial_summary" || canSeeFinance(authUser)).map((t) => (
                   <SelectItem key={t.value} value={t.value}>
                     {t.label}
                   </SelectItem>

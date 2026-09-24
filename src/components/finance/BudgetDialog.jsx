@@ -33,6 +33,14 @@ const empty = {
   notes: "",
 };
 
+// Defined outside the form so inputs keep focus while typing
+const F = ({ label, children, full }) => (
+  <div className={full ? "col-span-2  grid gap-1.5" : "grid gap-1.5"}>
+    <Label className="text-xs">{label}</Label>
+    {children}
+  </div>
+);
+
 export default function BudgetDialog({ open, onOpenChange, editing, onSaved }) {
   const { toast } = useToast();
   const [form, setForm] = useState(empty);
@@ -70,13 +78,6 @@ export default function BudgetDialog({ open, onOpenChange, editing, onSaved }) {
       setSaving(false);
     }
   };
-
-  const F = ({ label, children, full }) => (
-    <div className={full ? "col-span-2  grid gap-1.5" : "grid gap-1.5"}>
-      <Label className="text-xs">{label}</Label>
-      {children}
-    </div>
-  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

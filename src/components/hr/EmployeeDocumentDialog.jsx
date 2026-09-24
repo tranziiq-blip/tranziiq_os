@@ -28,6 +28,14 @@ const empty = {
   notes: "",
 };
 
+// Defined outside the form so inputs keep focus while typing
+const F = ({ label, children }) => (
+  <div className="grid gap-1.5">
+    <Label className="text-xs">{label}</Label>
+    {children}
+  </div>
+);
+
 export default function EmployeeDocumentDialog({
   open,
   onOpenChange,
@@ -81,13 +89,6 @@ export default function EmployeeDocumentDialog({
       setUploading(false);
     }
   };
-
-  const F = ({ label, children }) => (
-    <div className="grid gap-1.5">
-      <Label className="text-xs">{label}</Label>
-      {children}
-    </div>
-  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

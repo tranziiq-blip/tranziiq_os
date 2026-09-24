@@ -33,6 +33,14 @@ const empty = {
   notes: "",
 };
 
+// Defined outside the form so inputs keep focus while typing
+const Field = ({ label, children }) => (
+  <div className="grid gap-1.5">
+    <Label className="text-xs">{label}</Label>
+    {children}
+  </div>
+);
+
 export default function ToolboxTalkDialog({
   open,
   onOpenChange,
@@ -66,13 +74,6 @@ export default function ToolboxTalkDialog({
       setSaving(false);
     }
   };
-
-  const Field = ({ label, children }) => (
-    <div className="grid gap-1.5">
-      <Label className="text-xs">{label}</Label>
-      {children}
-    </div>
-  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

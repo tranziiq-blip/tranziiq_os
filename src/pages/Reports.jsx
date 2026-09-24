@@ -39,6 +39,8 @@ import {
 } from "recharts";
 import ReportBuilderDialog from "@/components/reports/ReportBuilderDialog";
 import ReportSnapshotViewer from "@/components/reports/ReportSnapshotViewer";
+import { useAuth } from "@/lib/AuthContext";
+import { canSeeFinance } from "@/lib/financeAccess";
 
 const rand = (n) =>
   `R ${Number(n || 0).toLocaleString("en-ZA", {
@@ -75,6 +77,8 @@ const FREQ_LABELS = {
 
 export default function Reports() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const showMoney = canSeeFinance(user);
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -344,19 +348,26 @@ export default function Reports() {
           details = manifests;
           break;
         case "client_summary":
+          const charges = showMoney
+            ? await base44.entities.LoadCharge.list().catch(() => [])
+            : [];
+          const chargeFor = Object.fromEntries(
+            charges.map((c) => [c.load_id, Number(c.estimated_amount || 0)]),
+          );
           const groups = loads.reduce((acc, l) => {
-            if (!acc[l.client]) acc[l.client] = { loads: 0, revenue: 0 };
-            acc[l.client].loads++;
-            acc[l.client].revenue += l.rate || 0;
+            const key = l.client || "Unassigned";
+            if (!acc[key]) acc[key] = { loads: 0, revenue: 0 };
+            acc[key].loads++;
+            acc[key].revenue += chargeFor[l.id] || 0;
             return acc;
           }, {});
           summary.total_clients = Object.keys(groups).length;
           summary.total_loads = loads.length;
-          details = Object.entries(groups).map(([client, v]) => ({
-            client,
-            loads: v.loads,
-            revenue: v.revenue,
-          }));
+          details = Object.entries(groups).map(([client, v]) =>
+            showMoney
+              ? { client, loads: v.loads, revenue: v.revenue }
+              : { client, loads: v.loads },
+          );
           break;
         default:
           details = loads;
@@ -614,7 +625,7 @@ recipient(s)`
         { label: "Movements", value: "—" },
       ],
     },
-    {
+    showMoney && {
       dept: "Finance",
       icon: Wallet,
       color: "text-emerald-500",
@@ -772,7 +783,7 @@ text-2xl font-bold ${netProfit >= 0 ? "text-brand-navy" : "text-rose-600"}`}
               Department Scorecards
             </h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {scorecards.map((s) => (
+              {scorecards.filter(Boolean).map((s) => (
                 <Card key={s.dept} className="border-border/60 shadow-sm">
                   <CardHeader className="pb-2">
                     <div className="flex items-center gap-2">

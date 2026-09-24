@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
+import { canSeeFinance } from "@/lib/financeAccess";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,13 +83,15 @@ export default function Insights() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { user } = useAuth();
+  const showMoney = canSeeFinance(user);
 
   const generate = async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await base44.functions.invoke("generateInsights", {});
-      setData(res.data);
+      setData(res?.data?.data ?? res?.data ?? null);
     } catch (e) {
       setError(e.message || "Failed to generate insights");
     } finally {
@@ -102,7 +107,7 @@ export default function Insights() {
             AI Insights & Analytics
           </h1>
           <p className="text-sm text-muted-foreground">
-            Predictive cost-of-inefficiency analysis · risk forecasting · KPI
+            Live operational figures · risk forecasting · KPI
             scorecards
           </p>
         </div>
@@ -125,7 +130,7 @@ export default function Insights() {
           <CardContent className="flex flex-col items-center justify-center gap-3  py-16">
             <div className="h-10 w-10 border-4 border-muted border-t-brand-teal  rounded-full animate-spin" />
             <p className="text-sm text-muted-foreground">
-              AI is analyzing operational data across all departments…
+              Counting your live records…
             </p>
           </CardContent>
         </Card>
@@ -157,185 +162,37 @@ export default function Insights() {
       )}
 
       {data && (
-        <div className="space-y-6">
-          {/* Cost of inefficiency banner */}
-          <Card className="overflow-hidden border-0 gradient-brand text-white  shadow-lg">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl  bg-white/15 backdrop-blur">
-                  <TrendingDown className="text-white" size={24} />
-                </div>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider  text-white/70">
-                    AI-Estimated Cost of Inefficiency
-                  </p>
-                  <p className="mt-1 font-display text-4xl  font-bold">
-                    {rand(data.cost_of_efficiency || data.cost_of_inefficiency)}
-                  </p>
-                  <p className="mt-1 text-sm text-white/80">
-                    Estimated Rand value lost today across your operation
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Inefficiency breakdown */}
-          {data.inefficiency_breakdown &&
-            data.inefficiency_breakdown.length > 0 && (
-              <Card className="border-border/60 shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2  text-base font-semibold">
-                    <TrendingDown size={18} className="text-rose-500" />
-                    Inefficiency Breakdown
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 pt-2">
-                  {data.inefficiency_breakdown.map((item, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-3 rounded-lg border  border-border/50 p-3"
-                    >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg  bg-rose-50">
-                        <span className="text-sm font-bold  text-rose-600">
-                          {rand(item.amount).replace("R ", "")}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-brand-navy">
-                          {item.category}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.detail}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-          {/* KPI Scorecard */}
-          {data.kpi_scorecard && (
-            <Card className="border-border/60 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2  text-base font-semibold">
-                  <Gauge size={18} className="text-brand-teal" /> KPI Scorecard
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                  <ScoreGauge
-                    label="Fleet Utilization"
-                    score={data.kpi_scorecard.fleet_utilization || 0}
-                    icon={Gauge}
-                  />
-                  <ScoreGauge
-                    label="On-Time Delivery"
-                    score={data.kpi_scorecard.on_time_delivery || 0}
-                    icon={DollarSign}
-                  />
-                  <ScoreGauge
-                    label="Cost per KM"
-                    score={data.kpi_scorecard.cost_per_km_efficiency || 0}
-                    icon={TrendingDown}
-                  />
-                  <ScoreGauge
-                    label="Safety Index"
-                    score={data.kpi_scorecard.safety_index || 0}
-                    icon={AlertTriangle}
-                  />
-                </div>
-                {data.kpi_scorecard.notes && (
-                  <p className="mt-4 rounded-lg bg-muted/50 p-3  text-xs text-muted-foreground">
-                    {data.kpi_scorecard.notes}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Predictions */}
-            {data.predictions && (
-              <Card className="border-border/60 shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2  text-base font-semibold">
-                    <AlertTriangle size={18} className="text-amber-500" />
-                    Risk Predictions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 pt-2">
-                  {data.predictions.map((p, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg border border-border/50 p-3"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-brand-navy">
-                          {p.risk}
-                        </p>
-                        <Badge
-                          className={
-                            LIKELIHOOD_STYLE[p.likelihood] || "bg-slate-100"
-                          }
-                        >
-                          {p.likelihood}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {p.impact}
-                      </p>
-                      <p className="mt-1 text-xs font-medium text-brand-teal">
-                        ⏱ {p.timeframe}
-                      </p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Recommendations */}
-            {data.recommendations && (
-              <Card className="border-border/60 shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2  text-base font-semibold">
-                    <Lightbulb size={18} className="text-brand-blue" />
-                    Prioritised Recommendations
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 pt-2">
-                  {data.recommendations.map((r, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg border border-border/50 p-3"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-brand-navy">
-                          {r.action}
-                        </p>
-                        <Badge
-                          className={PRIO_STYLE[r.priority] || "bg-slate-100"}
-                        >
-                          {r.priority}
-                        </Badge>
-                      </div>
-                      <div className="mt-1 flex items-center gap-3 text-xs">
-                        <span className="text-muted-foreground">
-                          Dept: {r.department}
-                        </span>
-                        {r.expected_saving > 0 && (
-                          <span className="font-semibold  text-emerald-600">
-                            Save {rand(r.expected_saving)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[
+              { label: "Loads this month", value: data.loads_this_month, to: "/loads" },
+              { label: "Cross-border loads awaiting clearance", value: data.cross_border_loads_pending_clearance, to: "/weighbill", warn: data.cross_border_loads_pending_clearance > 0 },
+              { label: "Services due in 30 days", value: data.maintenance_due_30_days, to: "/engineering", warn: data.maintenance_due_30_days > 0 },
+              { label: "Compliance documents expiring in 30 days", value: data.compliance_docs_expiring_30_days, to: "/compliance", warn: data.compliance_docs_expiring_30_days > 0 },
+              ...(showMoney
+                ? [
+                    { label: "Overdue invoices", value: `${data.overdue_invoices_count || 0} · ${rand(data.overdue_invoices_total)}`, to: "/finance", warn: data.overdue_invoices_count > 0 },
+                    { label: "Fuel spend this month", value: rand(data.fuel_spend_this_month), to: "/finance" },
+                  ]
+                : []),
+            ].map((m) => (
+              <Link key={m.label} to={m.to}>
+                <Card className={`h-full border-border/60 shadow-sm transition hover:shadow-md ${m.warn ? "border-amber-300 bg-amber-50/40" : ""}`}>
+                  <CardContent className="p-4">
+                    <p className="text-xs font-medium text-muted-foreground">{m.label}</p>
+                    <p className={`mt-2 font-display text-2xl font-bold ${m.warn ? "text-amber-700" : "text-brand-navy"}`}>
+                      {m.value ?? 0}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Calculated from your live records
+            {data.generated_at ? ` at ${new Date(data.generated_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}` : ""}.
+            Figures are counted directly from your data, never estimated.
+          </p>
         </div>
       )}
     </div>
