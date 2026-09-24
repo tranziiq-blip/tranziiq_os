@@ -14,6 +14,7 @@ import UserNotRegisteredError from "@/components/UserNotRegisteredError";
 import ScrollToTop from "./components/ScrollToTop";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import FileOpen from "@/pages/FileOpen";
+import GlobalErrorNotices from "@/components/GlobalErrorNotices";
 import { isPasswordRecovery } from "@/api/base44Client";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
@@ -178,6 +179,7 @@ function App() {
           <CookieBanner />
         </Router>
         <Toaster />
+        <GlobalErrorNotices />
       </QueryClientProvider>
     </AuthProvider>
   );

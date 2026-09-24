@@ -376,7 +376,9 @@ ${!i.pod_captured ? "captured" : "uncaptured"}`,
           due_date: { $lt: new Date().toISOString().slice(0, 10) },
         },
         { $set: { status: "overdue" } },
-      ).then(() => load());
+      )
+        .then(() => load())
+        .catch(() => {}); // read-only accounts can't auto-flag; not an error
     }
   }, [loading]);
 

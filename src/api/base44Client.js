@@ -19,6 +19,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { safeFileName, syncFileAuth } from "@/lib/secureFiles";
 import { compressImage } from "@/lib/imageCompress";
+import { NON_TEXT_COLUMNS } from "@/lib/dbColumnTypes";
 
 // Keep only "https://<ref>.supabase.co". A URL pasted with a path such as
 // "/rest/v1/" makes every sign-up fail with "Invalid path specified in request URL".
@@ -167,27 +168,70 @@ function withAliases(row) {
   };
 }
 
-function cleanPayload(payload = {}) {
+function cleanPayload(payload = {}, table) {
+  const types = NON_TEXT_COLUMNS[table] || {};
   const out = {};
-  for (const [k, v] of Object.entries(payload)) {
+  for (const [k, v] of Object.entries(payload || {})) {
     if (k === "created_date" || k === "updated_date" || k === "id") continue;
-    out[k] = v;
+    const type = types[k];
+    if (type && (v === "" || v === undefined)) {
+      out[k] = null; // blank date / number / id / list -> empty
+    } else if (type === "num" && typeof v === "string" && v.trim() !== "" && !isNaN(Number(v))) {
+      out[k] = Number(v);
+    } else if (v !== undefined) {
+      out[k] = v;
+    }
   }
   return out;
 }
 
-function applySort(query, sort) {
+// Base44 accepted Mongo-style filters ({ field: { $lt: x } }); translate them.
+function applyCriteria(query, criteria = {}) {
+  for (const [key, value] of Object.entries(criteria || {})) {
+    const col = toColumn(key);
+    if (value === null) query = query.is(col, null);
+    else if (Array.isArray(value)) query = query.in(col, value);
+    else if (value && typeof value === "object" && !(value instanceof Date)) {
+      for (const [op, v] of Object.entries(value)) {
+        if (op === "$lt") query = query.lt(col, v);
+        else if (op === "$lte") query = query.lte(col, v);
+        else if (op === "$gt") query = query.gt(col, v);
+        else if (op === "$gte") query = query.gte(col, v);
+        else if (op === "$ne") query = v === null ? query.not(col, "is", null) : query.neq(col, v);
+        else if (op === "$in") query = query.in(col, v);
+        else if (op === "$eq") query = query.eq(col, v);
+        else throw new Error(`Unsupported filter operator ${op}`);
+      }
+    } else query = query.eq(col, value);
+  }
+  return query;
+}
+
+function applySort(query, sort, table) {
   if (!sort || typeof sort !== "string") return query;
   const desc = sort.startsWith("-");
-  const col = toColumn(desc ? sort.slice(1) : sort);
+  let col = toColumn(desc ? sort.slice(1) : sort);
+  if (col === "updated_at" && NO_UPDATED_AT.has(table)) col = "created_at";
   return query.order(col, { ascending: !desc, nullsFirst: false });
+}
+
+// Saves refused because a trial/pilot ended (raised by the database) are
+// announced app-wide, so every screen shows the reason even if that screen
+// doesn't handle errors itself.
+const BLOCKED = /trial has ended|pilot project has ended|account is suspended/i;
+function announceWriteError(error) {
+  if (typeof window !== "undefined" && BLOCKED.test(error?.message || "")) {
+    window.dispatchEvent(new CustomEvent("tranziiq:write-blocked", { detail: error.message }));
+    error.handledGlobally = true;
+  }
+  return error;
 }
 
 function makeEntityClient(table) {
   return {
     // base44.entities.X.list(sort?, limit?) -> newest first by default
     async list(sort = "-created_at", limit) {
-      let query = applySort(supabase.from(table).select("*"), sort);
+      let query = applySort(supabase.from(table).select("*"), sort, table);
       if (Number(limit) > 0) query = query.limit(Number(limit));
       const { data, error } = await query;
       if (error) throw error;
@@ -196,14 +240,8 @@ function makeEntityClient(table) {
 
     // base44.entities.X.filter({ field: value, ... }, sort?, limit?)
     async filter(criteria = {}, sort = "-created_at", limit) {
-      let query = supabase.from(table).select("*");
-      for (const [key, value] of Object.entries(criteria || {})) {
-        const col = toColumn(key);
-        if (value === null) query = query.is(col, null);
-        else if (Array.isArray(value)) query = query.in(col, value);
-        else query = query.eq(col, value);
-      }
-      query = applySort(query, sort);
+      let query = applyCriteria(supabase.from(table).select("*"), criteria);
+      query = applySort(query, sort, table);
       if (Number(limit) > 0) query = query.limit(Number(limit));
       const { data, error } = await query;
       if (error) throw error;
@@ -223,10 +261,10 @@ function makeEntityClient(table) {
     async create(payload) {
       const { data, error } = await supabase
         .from(table)
-        .insert(cleanPayload(payload))
+        .insert(cleanPayload(payload, table))
         .select()
         .single();
-      if (error) throw error;
+      if (error) throw announceWriteError(error);
       return withAliases(data);
     },
 
@@ -234,14 +272,14 @@ function makeEntityClient(table) {
       if (!rows.length) return [];
       const { data, error } = await supabase
         .from(table)
-        .insert(rows.map(cleanPayload))
+        .insert(rows.map((r) => cleanPayload(r, table)))
         .select();
-      if (error) throw error;
+      if (error) throw announceWriteError(error);
       return (data || []).map(withAliases);
     },
 
     async update(id, payload) {
-      const body = cleanPayload(payload);
+      const body = cleanPayload(payload, table);
       if (!NO_UPDATED_AT.has(table)) body.updated_at = new Date().toISOString();
       const { data, error } = await supabase
         .from(table)
@@ -249,13 +287,25 @@ function makeEntityClient(table) {
         .eq("id", id)
         .select()
         .single();
-      if (error) throw error;
+      if (error) throw announceWriteError(error);
       return withAliases(data);
+    },
+
+    // updateMany(criteria, { $set: {...} } | {...})
+    async updateMany(criteria = {}, changes = {}) {
+      const body = cleanPayload(changes.$set || changes, table);
+      if (!NO_UPDATED_AT.has(table)) body.updated_at = new Date().toISOString();
+      const { data, error } = await applyCriteria(
+        supabase.from(table).update(body),
+        criteria,
+      ).select();
+      if (error) throw announceWriteError(error);
+      return (data || []).map(withAliases);
     },
 
     async delete(id) {
       const { error } = await supabase.from(table).delete().eq("id", id);
-      if (error) throw error;
+      if (error) throw announceWriteError(error);
       return true;
     },
   };

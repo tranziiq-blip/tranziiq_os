@@ -59,10 +59,15 @@ export default function ClientPortal() {
         const dir = await base44.entities.BusinessDirectory.filter({
           portal_access_email: user.email,
         }).catch(() => []);
-        if (dir.length > 0) {
+        // The database only returns this customer's own records; lock the
+        // view to their company name.
+        const linked = user.linked_client_name || user.data?.linked_client_name;
+        if (linked) {
+          setSelected(linked);
+          setClients([linked]);
+        } else if (dir.length > 0) {
           setSelected(dir[0].name);
-        } else if (user.data?.linked_client_name) {
-          setSelected(user.data.linked_client_name);
+          setClients([dir[0].name]);
         }
       }
     } catch (e) {
