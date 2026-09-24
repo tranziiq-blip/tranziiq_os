@@ -79,12 +79,12 @@ const ACTIVE = [
 export default function Layout() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   // Outside users go straight to their own area
   useEffect(() => {
     const home = user?.role === "client" ? "/portal" : user?.role === "clearing_agent" ? "/weighbill" : null;
     if (home && location.pathname === "/") navigate(home, { replace: true });
   }, [user?.role, location.pathname]);
-  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [manualExpanded, setManualExpanded] = useState({});
   const [specializedActive, setSpecializedActive] = useState(true);
