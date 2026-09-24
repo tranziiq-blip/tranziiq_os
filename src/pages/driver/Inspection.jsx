@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import { fleetTypeMeta, combinationMeta } from "@/lib/fleetTypes";
 import CheckItem from "@/components/driver/CheckItem";
 
 export default function Inspection() {
+  const navigate = useNavigate();
   const { driver } = useOutletContext();
   const { toast } = useToast();
   const [trucks, setTrucks] = useState([]);
@@ -147,9 +148,21 @@ export default function Inspection() {
         signature_name: signature,
         notes,
       });
+      const inspectedTruckId = truckId;
+      if (status === "pass") {
+        toast({
+          title: "Inspection passed",
+          description: "Next: your shift risk assessment",
+        });
+        // Straight on to the risk assessment for the truck just inspected
+        navigate("/driver", { state: { openRisk: true, truckId: inspectedTruckId } });
+        return;
+      }
       toast({
-        title: `Inspection submitted — ${status.toUpperCase()}`,
-        variant: status === "pass" ? "default" : "destructive",
+        title: "Inspection submitted — FAIL",
+        description:
+          "Report the defects to the workshop. The risk assessment opens once the truck passes inspection.",
+        variant: "destructive",
       });
       setResults({});
       setSignature("");

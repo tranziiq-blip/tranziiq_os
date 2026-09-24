@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ function isToday(dateStr) {
 export default function DriverHome() {
   const { driver } = useOutletContext();
   const navigate = useNavigate();
+  const location = useLocation();
   const [shift, setShift] = useState(null);
   const [activeLoad, setActiveLoad] = useState(null);
   const [inspectionDone, setInspectionDone] = useState(false);
@@ -89,16 +90,25 @@ export default function DriverHome() {
         isToday(inspections[0].created_date) &&
         inspections[0].status === "pass",
     );
-    setRiskDone(risks[0] && isToday(risks[0].created_date));
-    if (driver.assigned_truck_id) {
+    const riskAlreadyDone = !!(risks[0] && isToday(risks[0].created_date));
+    setRiskDone(riskAlreadyDone);
+    // Coming straight from a passed inspection: use that truck
+    const handoff = location.state?.openRisk ? location.state : null;
+    const truckIdToLoad = handoff?.truckId || driver.assigned_truck_id;
+    if (truckIdToLoad) {
       try {
-        const t = await base44.entities.Truck.get(driver.assigned_truck_id);
+        const t = await base44.entities.Truck.get(truckIdToLoad);
         setTruck(t);
       } catch {
         /* noop */
       }
     }
     setLoading(false);
+    if (handoff) {
+      // Clear the hand-off so a refresh doesn't reopen it
+      navigate(location.pathname, { replace: true, state: null });
+      if (!riskAlreadyDone) setRiskOpen(true);
+    }
   };
 
   useEffect(() => {
