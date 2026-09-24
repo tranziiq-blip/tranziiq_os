@@ -6,6 +6,7 @@ import {
   Route,
   Routes,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 import PageNotFound from "./lib/PageNotFound";
 import { AuthProvider, useAuth } from "@/lib/AuthContext";
@@ -13,6 +14,7 @@ import UserNotRegisteredError from "@/components/UserNotRegisteredError";
 import ScrollToTop from "./components/ScrollToTop";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import FileOpen from "@/pages/FileOpen";
+import { isPasswordRecovery } from "@/api/base44Client";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -66,6 +68,7 @@ function hasStoredSession() {
 }
 
 const AuthenticatedApp = () => {
+  const location = useLocation();
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } =
     useAuth();
 
@@ -82,6 +85,15 @@ const AuthenticatedApp = () => {
       return <UserNotRegisteredError />;
     }
     // auth_required: fall through — ProtectedRoute decides per route
+  }
+
+  // Arrived from a password-reset link: nothing else opens until a new
+  // password is saved (or the user cancels and signs out).
+  if (
+    isPasswordRecovery() &&
+    !["/reset-password", "/forgot-password", "/login"].includes(location.pathname)
+  ) {
+    return <Navigate to="/reset-password" replace />;
   }
 
   return (

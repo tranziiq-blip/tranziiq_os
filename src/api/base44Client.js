@@ -35,10 +35,35 @@ const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 // Placeholders stop createClient throwing at import time when env vars are
 // missing, so main.jsx can show a clear "missing environment variables" screen.
+// ---- Password recovery lock ----
+// A reset link signs the user in. Until they set a new password they are
+// kept on the reset page (in every tab), so the link can't be used to get
+// into the app without choosing a password.
+const RECOVERY_KEY = "tranziiq_password_recovery";
+if (typeof window !== "undefined") {
+  const where = window.location.hash + window.location.search;
+  if (/type=recovery|[?&]recovery=1/.test(where) && !/error=/.test(where)) {
+    localStorage.setItem(RECOVERY_KEY, "1");
+  }
+}
+export const isPasswordRecovery = () =>
+  typeof window !== "undefined" && localStorage.getItem(RECOVERY_KEY) === "1";
+export const clearPasswordRecovery = () => localStorage.removeItem(RECOVERY_KEY);
+
 export const supabase = createClient(
   supabaseUrl || "https://missing-env-var.invalid",
   supabaseAnonKey || "missing-env-var",
 );
+
+supabase.auth.onAuthStateChange((event) => {
+  if (event === "PASSWORD_RECOVERY") {
+    localStorage.setItem(RECOVERY_KEY, "1");
+    if (window.location.pathname !== "/reset-password") {
+      window.location.replace("/reset-password");
+    }
+  }
+  if (event === "SIGNED_OUT") clearPasswordRecovery();
+});
 
 // Keep the file service worker's token in step with the session
 supabase.auth.onAuthStateChange((_event, session) => {
@@ -348,14 +373,25 @@ const auth = {
 
   async resetPasswordRequest(email) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/ResetPassword`,
+      redirectTo: `${window.location.origin}/reset-password?recovery=1`,
     });
     if (error) throw error;
   },
 
+  // Sets the new password for the signed-in recovery session, then signs
+  // out every other device that may still be logged in.
   async resetPassword(newPassword) {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    const password =
+      typeof newPassword === "object" ? newPassword?.newPassword : newPassword;
+    const { error } = await supabase.auth.updateUser({ password });
     if (error) throw error;
+    clearPasswordRecovery();
+    await supabase.auth.signOut({ scope: "others" }).catch(() => {});
+  },
+
+  async cancelPasswordRecovery() {
+    clearPasswordRecovery();
+    await supabase.auth.signOut();
   },
 
   async updateMe(payload) {
