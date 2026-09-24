@@ -76,6 +76,9 @@ const empty = {
   cargo_type: "",
   rate_per_ton: "",
   rate_per_km: "",
+  vat_number: "",
+  registration_number: "",
+  payment_terms_days: 30,
   linked_client: "",
   notes: "",
 };
@@ -114,6 +117,9 @@ export default function BusinessDirectory() {
     setEditing(e);
     setForm({
       ...e,
+      vat_number: e.vat_number || "",
+      registration_number: e.registration_number || "",
+      payment_terms_days: e.payment_terms_days ?? 30,
       rate_per_ton: e.rate_per_ton ?? "",
       rate_per_km: e.rate_per_km ?? "",
     });
@@ -129,6 +135,7 @@ export default function BusinessDirectory() {
       ...form,
       rate_per_ton: form.rate_per_ton ? Number(form.rate_per_ton) : undefined,
       rate_per_km: form.rate_per_km ? Number(form.rate_per_km) : undefined,
+      payment_terms_days: form.payment_terms_days === "" ? null : Number(form.payment_terms_days),
     };
     try {
       if (editing)
@@ -415,6 +422,28 @@ ${e.route_destination || "—"}`
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">VAT number</Label>
+                  <Input
+                    value={form.vat_number || ""}
+                    onChange={(e) => setForm({ ...form, vat_number: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Company registration no.</Label>
+                  <Input
+                    value={form.registration_number || ""}
+                    onChange={(e) => setForm({ ...form, registration_number: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Payment terms (days)</Label>
+                  <Input
+                    type="number"
+                    value={form.payment_terms_days ?? ""}
+                    onChange={(e) => setForm({ ...form, payment_terms_days: e.target.value })}
+                  />
                 </div>
                 <div className="grid gap-1.5">
                   <Label className="text-xs">Rate per Ton (R)</Label>

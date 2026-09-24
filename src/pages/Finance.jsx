@@ -39,6 +39,7 @@ import {
 import BudgetDialog from "@/components/finance/BudgetDialog";
 import FinancialDocDialog from "@/components/finance/FinancialDocDialog";
 import BankTransactionDialog from "@/components/finance/BankTransactionDialog";
+import InvoiceDialog from "@/components/finance/InvoiceDialog";
 import {
   BUDGET_CATEGORIES,
   FIN_DOC_TYPES,
@@ -206,47 +207,11 @@ export default function Finance() {
   // Invoice actions
   const openInvNew = () => {
     setEditing(null);
-    setInvForm({
-      invoice_number: `INV-${String(invoices.length + 1).padStart(4, "0")}`,
-      client: "",
-      load_id: "",
-      invoice_date: new Date().toISOString().slice(0, 10),
-      due_date: "",
-      amount: 0,
-      pod_captured: false,
-      pod_date: "",
-      notes: "",
-    });
     setInvOpen(true);
   };
   const openInvEdit = (i) => {
     setEditing(i);
-    setInvForm({ ...i });
     setInvOpen(true);
-  };
-  const saveInv = async () => {
-    if (!invForm.invoice_number || !invForm.client || !invForm.amount) {
-      toast({
-        title: "Number, client & amount required",
-        variant: "destructive",
-      });
-      return;
-    }
-    const vat = Math.round(invForm.amount * 0.15 * 100) / 100;
-    const data = {
-      ...invForm,
-      vat_amount: vat,
-      total_amount: Number(invForm.amount) + vat,
-      load_number: loadNum(invForm.load_id),
-      truck_registration: loads.find((l) => l.id === invForm.load_id)?.truck_id
-        ? truckReg(loads.find((l) => l.id === invForm.load_id).truck_id)
-        : "",
-    };
-    if (editing) await base44.entities.Invoice.update(editing.id, data);
-    else await base44.entities.Invoice.create(data);
-    toast({ title: editing ? "Invoice updated" : "Invoice created" });
-    setInvOpen(false);
-    load();
   };
   const advanceInv = async (i) => {
     const flow = ["unbilled", "invoiced", "paid"];
@@ -1316,123 +1281,13 @@ ${FIN_DOC_STATUS[d.status]?.color}`}
       />
 
       {/* Invoice Dialog */}
-      <Dialog open={invOpen} onOpenChange={setInvOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editing ? "Edit Invoice" : "New  Invoice"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid  gap-2">
-                <Label>Invoice Number</Label>
-                <Input
-                  value={invForm.invoice_number}
-                  onChange={(e) =>
-                    setInvForm({ ...invForm, invoice_number: e.target.value })
-                  }
-                  className="font-mono"
-                />
-              </div>
-              <div className="grid  gap-2">
-                <Label>Client</Label>
-                <Input
-                  value={invForm.client}
-                  onChange={(e) =>
-                    setInvForm({ ...invForm, client: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label>Associated Load</Label>
-              <Select
-                value={invForm.load_id}
-                onValueChange={(v) => setInvForm({ ...invForm, load_id: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select load" />
-                </SelectTrigger>
-                <SelectContent>
-                  {loads.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.load_number} —{l.client}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="grid  gap-2">
-                <Label>Date</Label>
-                <Input
-                  type="date"
-                  value={invForm.invoice_date || ""}
-                  onChange={(e) =>
-                    setInvForm({ ...invForm, invoice_date: e.target.value })
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Due Date</Label>
-                <Input
-                  type="date"
-                  value={invForm.due_date || ""}
-                  onChange={(e) =>
-                    setInvForm({ ...invForm, due_date: e.target.value })
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Amount (excl VAT)</Label>
-                <Input
-                  type="number"
-                  value={invForm.amount}
-                  onChange={(e) =>
-                    setInvForm({ ...invForm, amount: Number(e.target.value) })
-                  }
-                />
-              </div>
-            </div>
-            <div className="rounded-lg bg-muted/50 p-3 text-sm">
-              <div className="flex  justify-between">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span>{rand(invForm.amount)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">VAT (15%)</span>
-                <span>{rand(invForm.amount * 0.15)}</span>
-              </div>
-              <div className="flex justify-between font-bold  text-brand-navy">
-                <span>Total</span>
-                <span>{rand(Number(invForm.amount) * 1.15)}</span>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label>Notes</Label>
-              <Textarea
-                value={invForm.notes}
-                onChange={(e) =>
-                  setInvForm({ ...invForm, notes: e.target.value })
-                }
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setInvOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={saveInv}
-              className="bg-brand-navy hover:bg-brand-navy/90"
-            >
-              {editing ? "Save" : "Create"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <InvoiceDialog
+        open={invOpen}
+        onOpenChange={setInvOpen}
+        editing={editing}
+        nextNumber={`INV-${String(invoices.length + 1).padStart(4, "0")}`}
+        onSaved={load}
+      />
 
       {/* Expense Dialog */}
       <Dialog open={expOpen} onOpenChange={setExpOpen}>

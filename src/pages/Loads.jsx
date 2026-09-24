@@ -48,6 +48,7 @@ const empty = {
   cross_border: false,
   border_post: "",
   freight_forwarder: "",
+  assigned_clearing_agent_id: "",
 };
 
 export default function Loads() {
@@ -59,6 +60,7 @@ export default function Loads() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [routes, setRoutes] = useState([]);
+  const [agents, setAgents] = useState([]);
   const pickRoute = (id) => {
     const r = routes.find((x) => x.id === id);
     if (!r) return setForm((f) => ({ ...f, route_id: "" }));
@@ -79,14 +81,16 @@ export default function Loads() {
   const load = async () => {
     setLoading(true);
     try {
-      const [l, t, d, cps, rts] = await Promise.all([
+      const [l, t, d, cps, rts, ags] = await Promise.all([
         base44.entities.Load.list("-created_date"),
         base44.entities.Truck.filter({ status: "active" }),
         base44.entities.Driver.filter({ status: "active" }),
         base44.entities.ComplianceProfile.list("-created_date"),
         base44.entities.Route.filter({ active: true }, "name").catch(() => []),
+        base44.entities.User.filter({ role: "clearing_agent" }).catch(() => []),
       ]);
       setRoutes(rts);
+      setAgents(ags);
       setLoads(l);
       setTrucks(t);
       setDrivers(d);
@@ -119,6 +123,7 @@ export default function Loads() {
     const payload = {
       ...rest,
       route_id: form.route_id || null,
+      assigned_clearing_agent_id: form.assigned_clearing_agent_id || null,
       weight_tons: form.weight_tons ? Number(form.weight_tons) : undefined,
     };
     if (!editing) payload.status = "accepting_load";
@@ -518,6 +523,29 @@ ${meta.color}`}
                   }
                   placeholder="Clearing  agent"
                 />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs">Freight clearer (login)</Label>
+                <Select
+                  value={form.assigned_clearing_agent_id || "none"}
+                  onValueChange={(v) => setForm({ ...form, assigned_clearing_agent_id: v === "none" ? "" : v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Not assigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not assigned</SelectItem>
+                    {agents.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.full_name || a.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Only this clearer will see the load's manifest and customs documents.
+                  {agents.length === 0 ? " Invite clearers under Admin → Users with the Clearing Agent role." : ""}
+                </p>
               </div>
             </div>
           )}
