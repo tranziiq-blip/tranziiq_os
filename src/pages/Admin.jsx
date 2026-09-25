@@ -5,6 +5,7 @@ import UsersTab from "@/components/admin/UsersTab";
 import BillingTab from "@/components/admin/BillingTab";
 import BusinessDirectory from "@/pages/BusinessDirectory";
 import { Building2, Users, CreditCard, Settings, BookOpen } from "lucide-react";
+import OpsSettingsPanel from "@/components/admin/OpsSettingsPanel";
 
 export default function Admin() {
   const [tab, setTab] = useState("organization");
@@ -41,6 +42,9 @@ export default function Admin() {
         </TabsList>
         <TabsContent value="organization" className="mt-4">
           <OrganizationTab />
+          <div className="mt-6">
+            <OpsSettingsPanel />
+          </div>
         </TabsContent>
         <TabsContent value="users" className="mt-4">
           <UsersTab />

@@ -17,9 +17,8 @@ import {
 } from "lucide-react";
 import RiskAssessmentDialog from "@/components/driver/RiskAssessmentDialog";
 import GpsTracker from "@/components/driver/GpsTracker";
+import { opsSettings } from "@/lib/opsSettings";
 
-const REST_INTERVAL_MS = 2 * 60 * 60 * 1000;
-const SHIFT_LIMIT_MS = 15 * 60 * 60 * 1000;
 
 function fmt(ms) {
   if (ms < 0) ms = 0;
@@ -47,6 +46,15 @@ export default function DriverHome() {
   const { driver } = useOutletContext();
   const navigate = useNavigate();
   const location = useLocation();
+  // Fatigue rules come from the company's Cost & Risk Settings
+  const [fatigue, setFatigue] = useState(opsSettings(null));
+  useEffect(() => {
+    base44.entities.CompanyProfile.list()
+      .then((l) => setFatigue(opsSettings(l[0])))
+      .catch(() => {});
+  }, []);
+  const REST_INTERVAL_MS = fatigue.rest_interval_hours * 3600000;
+  const SHIFT_LIMIT_MS = fatigue.max_shift_hours * 3600000;
   const [shift, setShift] = useState(null);
   const [activeLoad, setActiveLoad] = useState(null);
   const [inspectionDone, setInspectionDone] = useState(false);
@@ -141,7 +149,7 @@ export default function DriverHome() {
     if (!shift) return;
     await base44.entities.ShiftLog.update(shift.id, {
       rests_taken: (shift.rests_taken || 0) + 1,
-      rest_minutes: (shift.rest_minutes || 0) + 20,
+      rest_minutes: (shift.rest_minutes || 0) + fatigue.rest_break_minutes,
     });
     loadData();
   };
@@ -301,21 +309,21 @@ rounded-full ${done ? "bg-emerald-500 text-white" : "bg-muted  text-muted-foregr
                     }
                   />{" "}
                   <p className="text-sm font-medium text-foreground">
-                    Fatigue Rule — rest every 2h / 200km
+                    {`Fatigue rule — rest ${fatigue.rest_break_minutes} min every ${fatigue.rest_interval_hours}h`}
                   </p>{" "}
                 </div>{" "}
                 {restDue ? (
                   <div className="mt-2">
                     {" "}
                     <p className="text-sm font-semibold text-amber-700">
-                      ⚠ Rest break due now (min 20 min)
+                      {`⚠ Rest break due now (min ${fatigue.rest_break_minutes} min)`}
                     </p>{" "}
                     <Button
                       onClick={takeRest}
                       size="sm"
                       className="mt-2 gap-2 bg-amber-600  hover:bg-amber-700"
                     >
-                      <Coffee size={14} /> Log 20-min Rest
+                      <Coffee size={14} /> {`Log ${fatigue.rest_break_minutes}-min Rest`}
                     </Button>{" "}
                   </div>
                 ) : (

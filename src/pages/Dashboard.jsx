@@ -2,14 +2,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { canSeeFinance } from "@/lib/financeAccess";
+import { loadOpsData, analyseOperations, CATEGORIES, formatRand } from "@/lib/opsEngine";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Truck,
   Users,
@@ -59,9 +54,26 @@ const expiryText = (d) =>
 export default function Dashboard() {
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
-  const [showRecs, setShowRecs] = useState(false);
   const { user } = useAuth();
   const showMoney = canSeeFinance(user);
+  const [ops, setOps] = useState(null);
+  // Operations intelligence: re-checked every minute so live problems
+  // (fatigue, stalled loads, border delays) appear without a refresh.
+  useEffect(() => {
+    let alive = true;
+    const run = async () => {
+      const d = await loadOpsData();
+      if (alive) setOps(analyseOperations(d));
+    };
+    run();
+    const id = setInterval(run, 60000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+  const findings = ops?.findings || [];
+  const urgentFindings = findings.filter((x) => x.severity === "critical" || x.severity === "high");
 
   useEffect(() => {
     (async () => {
@@ -253,7 +265,7 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Insight banner — calculated from live records */}
+      {/* Operations intelligence banner */}
       <Card className="overflow-hidden border-0 gradient-brand text-white shadow-lg">
         <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-4">
@@ -262,28 +274,40 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-white/70">
-                Operational insight
+                {showMoney ? "Estimated cost of current problems" : "Operational insight"}
               </p>
-              {loading ? (
+              {!ops ? (
                 <p className="mt-1 font-display text-2xl font-bold">Analysing your operation…</p>
               ) : isEmpty ? (
                 <>
                   <p className="mt-1 font-display text-2xl font-bold">Welcome to TranziIQ</p>
                   <p className="mt-1 text-sm text-white/80">
-                    Add your vehicles, drivers and first load. Insights appear here as soon as real activity is recorded.
+                    Add your vehicles, drivers and first load. Problems and their cost appear here as soon as real activity is recorded.
                   </p>
+                </>
+              ) : findings.length === 0 ? (
+                <>
+                  <p className="mt-1 font-display text-2xl font-bold">No problems detected</p>
+                  <p className="mt-1 text-sm text-white/80">Fatigue, delays, fuel, payload, maintenance, compliance and cash flow are all within your targets.</p>
                 </>
               ) : (
                 <>
                   <p className="mt-1 font-display text-3xl font-bold">
-                    {urgent}{" "}
+                    {showMoney ? formatRand(ops.totalCost) : findings.length}{" "}
                     <span className="text-base font-medium text-white/70">
-                      item{urgent === 1 ? "" : "s"} need attention this week
+                      {showMoney
+                        ? `across ${findings.length} problem${findings.length === 1 ? "" : "s"}`
+                        : `problem${findings.length === 1 ? "" : "s"} need attention`}
                     </span>
                   </p>
                   <p className="mt-1 text-sm text-white/80">
-                    {showMoney && overdueValue > 0 ? `${rand(overdueValue)} in overdue invoices · ` : ""}
-                    {inTransit} load{inTransit === 1 ? "" : "s"} on the road · {openJobs.length} open job card{openJobs.length === 1 ? "" : "s"}
+                    {urgentFindings.length} urgent ·{" "}
+                    {ops.byCategory
+                      .slice()
+                      .sort((a, b) => (showMoney ? b.cost - a.cost : b.count - a.count))
+                      .slice(0, 3)
+                      .map((c) => (showMoney && c.cost ? `${c.label} ${formatRand(c.cost)}` : `${c.label} (${c.count})`))
+                      .join(" · ")}
                   </p>
                 </>
               )}
@@ -291,20 +315,13 @@ export default function Dashboard() {
           </div>
           <div className="flex gap-2">
             {isEmpty ? (
-              <Link
-                to="/fleet"
-                className="rounded-lg bg-white/15 px-4 py-2 text-sm font-medium backdrop-blur hover:bg-white/25"
-              >
+              <Link to="/fleet" className="rounded-lg bg-white/15 px-4 py-2 text-sm font-medium backdrop-blur hover:bg-white/25">
                 Add your first vehicle
               </Link>
             ) : (
-              <button
-                onClick={() => setShowRecs(true)}
-                disabled={loading}
-                className="rounded-lg bg-white/15 px-4 py-2 text-sm font-medium backdrop-blur hover:bg-white/25"
-              >
-                View all ({alerts.length})
-              </button>
+              <Link to="/insights" className="rounded-lg bg-white/15 px-4 py-2 text-sm font-medium backdrop-blur hover:bg-white/25">
+                See action plan
+              </Link>
             )}
           </div>
         </CardContent>
@@ -598,70 +615,53 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Alerts */}
-      <Card className={alerts.length ? "border-amber-200 bg-amber-50/50" : "border-emerald-200 bg-emerald-50/40"}>
+      {/* Problems detected — live */}
+      <Card className={findings.length ? "border-amber-200 bg-amber-50/40" : "border-emerald-200 bg-emerald-50/40"}>
         <CardContent className="p-5">
-          <div className={`flex items-center gap-2 ${alerts.length ? "text-amber-700" : "text-emerald-700"}`}>
-            {alerts.length ? <AlertTriangle size={18} /> : <ShieldCheck size={18} />}
-            <p className="text-sm font-semibold">
-              {alerts.length ? `Active Alerts (${alerts.length})` : "No active alerts"}
-            </p>
+          <div className="flex items-center justify-between gap-2">
+            <div className={`flex items-center gap-2 ${findings.length ? "text-amber-700" : "text-emerald-700"}`}>
+              {findings.length ? <AlertTriangle size={18} /> : <ShieldCheck size={18} />}
+              <p className="text-sm font-semibold">
+                {findings.length ? `Problems detected (${findings.length})` : "No problems detected"}
+              </p>
+            </div>
+            <span className="text-[11px] text-muted-foreground">Checked every minute</span>
           </div>
-          {loading ? (
-            <p className="mt-3 text-sm text-muted-foreground">Checking your records…</p>
-          ) : alerts.length ? (
-            <ul className="mt-3 space-y-2 text-sm text-foreground/80">
-              {alerts.slice(0, 6).map((a, i) => (
-                <li key={i}>
-                  <Link to={a.to} className="hover:underline">• {a.text}</Link>
+          {!ops ? (
+            <p className="mt-3 text-sm text-muted-foreground">Checking your operation…</p>
+          ) : findings.length ? (
+            <ul className="mt-3 space-y-2">
+              {findings.slice(0, 8).map((x) => (
+                <li key={x.id}>
+                  <Link to={x.link || "/insights"} className="flex items-start gap-3 rounded-lg bg-white/70 p-2.5 hover:bg-white">
+                    <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${x.severity === "critical" ? "bg-rose-600" : x.severity === "high" ? "bg-amber-500" : x.severity === "medium" ? "bg-yellow-400" : "bg-slate-300"}`} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-brand-navy">{x.title}</span>
+                      <span className="block text-xs text-muted-foreground">{CATEGORIES[x.category]}</span>
+                    </span>
+                    {showMoney && x.cost ? (
+                      <span className="shrink-0 text-sm font-semibold text-rose-700">{formatRand(x.cost)}</span>
+                    ) : null}
+                  </Link>
                 </li>
               ))}
-              {alerts.length > 6 && (
+              {findings.length > 8 && (
                 <li>
-                  <button onClick={() => setShowRecs(true)} className="font-medium text-brand-blue hover:underline">
-                    Show all {alerts.length} alerts
-                  </button>
+                  <Link to="/insights" className="text-sm font-medium text-brand-blue hover:underline">
+                    See all {findings.length} problems and the action plan
+                  </Link>
                 </li>
               )}
             </ul>
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">
-              Expiring licences, overdue services, fatigue limits and stalled loads will be flagged here automatically.
+              Fatigue breaches, missed rest breaks, standing time, idle trucks, underloading, weight loss,
+              fuel use, overdue services, expiring documents and unbilled loads are checked automatically.
             </p>
           )}
         </CardContent>
       </Card>
 
-      {/* All alerts dialog */}
-      <Dialog open={showRecs} onOpenChange={setShowRecs}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles size={18} className="text-brand-teal" /> What needs attention
-            </DialogTitle>
-          </DialogHeader>
-          {alerts.length ? (
-            <div className="space-y-2">
-              {alerts.map((a, i) => (
-                <Link
-                  key={i}
-                  to={a.to}
-                  onClick={() => setShowRecs(false)}
-                  className="flex items-start gap-3 rounded-lg border border-border/60 p-3 hover:bg-muted/50"
-                >
-                  <AlertTriangle
-                    size={16}
-                    className={`mt-0.5 shrink-0 ${a.days < 0 ? "text-rose-600" : a.days <= 7 ? "text-amber-600" : "text-muted-foreground"}`}
-                  />
-                  <span className="text-sm text-brand-navy">{a.text}</span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Nothing needs attention right now.</p>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
