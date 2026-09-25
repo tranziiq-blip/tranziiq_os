@@ -39,7 +39,11 @@ function isToday(v) {
   );
 }
 
+// Ended without a sign-out (shift left open past the maximum shift length)
+const isMissed = (s) => s.status !== "active" && !s.clock_out;
+
 function duration(shift, now) {
+  if (isMissed(shift)) return "—";
   const end = shift.clock_out ? new Date(shift.clock_out).getTime() : now;
   const ms = Math.max(0, end - new Date(shift.clock_in).getTime());
   const h = Math.floor(ms / 3600000);
@@ -58,7 +62,7 @@ export default function TimeAttendanceTab({ shiftLogs, onDataChanged }) {
 
   const onShift = shiftLogs.filter((s) => s.status === "active");
   const todayLogs = shiftLogs.filter((s) => isToday(s.clock_in));
-  const msToday = todayLogs.reduce((sum, s) => {
+  const msToday = todayLogs.filter((s) => !isMissed(s)).reduce((sum, s) => {
     const end = s.clock_out ? new Date(s.clock_out).getTime() : now;
     return sum + Math.max(0, end - new Date(s.clock_in).getTime());
   }, 0);
@@ -70,6 +74,7 @@ export default function TimeAttendanceTab({ shiftLogs, onDataChanged }) {
       await base44.entities.ShiftLog.update(shift.id, {
         clock_out: new Date().toISOString(),
         status: "ended",
+        clock_out_method: "hr",
       });
       onDataChanged?.();
     } finally {
@@ -121,6 +126,7 @@ export default function TimeAttendanceTab({ shiftLogs, onDataChanged }) {
             <TableHeader>
               <TableRow>
                 <TableHead>Employee</TableHead>
+                <TableHead>Department</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Clock In</TableHead>
                 <TableHead>Clock Out</TableHead>
@@ -134,7 +140,7 @@ export default function TimeAttendanceTab({ shiftLogs, onDataChanged }) {
               {shiftLogs.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={9}
                     className="text-center text-muted-foreground py-8"
                   >
                     No clock-in records yet.
@@ -145,7 +151,13 @@ export default function TimeAttendanceTab({ shiftLogs, onDataChanged }) {
                 <TableRow key={s.id} className="hover:bg-muted/30">
                   <TableCell className="font-semibold text-brand-navy text-sm">
                     {s.driver_name || "—"}
+                    {s.job_title && (
+                      <span className="block text-[10px] font-normal text-muted-foreground">
+                        {s.job_title}
+                      </span>
+                    )}
                   </TableCell>
+                  <TableCell className="text-xs">{s.department || "—"}</TableCell>
                   <TableCell className="text-xs">
                     {fmtDate(s.clock_in)}
                   </TableCell>
@@ -154,7 +166,12 @@ export default function TimeAttendanceTab({ shiftLogs, onDataChanged }) {
                   </TableCell>
                   <TableCell className="text-xs tabular-nums">
                     {s.clock_out ? (
-                      fmtTime(s.clock_out)
+                      <>
+                        {fmtTime(s.clock_out)}
+                        {s.clock_out_method === "hr" && (
+                          <span className="block text-[10px] text-muted-foreground">by HR</span>
+                        )}
+                      </>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -168,10 +185,16 @@ export default function TimeAttendanceTab({ shiftLogs, onDataChanged }) {
                       className={
                         s.status === "active"
                           ? "bg-emerald-100  text-emerald-700"
-                          : "bg-slate-100 text-slate-600"
+                          : isMissed(s)
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-slate-100 text-slate-600"
                       }
                     >
-                      {s.status === "active" ? "On  Shift" : "Ended"}
+                      {s.status === "active"
+                        ? "On  Shift"
+                        : isMissed(s)
+                          ? "Missed clock-out"
+                          : "Ended"}
                     </Badge>
                   </TableCell>
                   <TableCell>

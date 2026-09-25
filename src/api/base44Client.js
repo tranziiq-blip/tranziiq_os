@@ -467,7 +467,50 @@ const auth = {
     return data;
   },
 
+  // Signing out is clocking out: the signed-in person's open shift is
+  // closed before the session ends, so HR → Time & Attendance shows when
+  // they left.
+  async clockOut(method = "logout") {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return null;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("linked_employee_id, linked_driver_id")
+      .eq("id", session.user.id)
+      .maybeSingle();
+    const ids = [profile?.linked_employee_id, profile?.linked_driver_id]
+      .filter(Boolean)
+      .map(String);
+    if (!ids.length) return null;
+    const list = ids.join(",");
+    const { data, error } = await supabase
+      .from("shift_log")
+      .update({
+        clock_out: new Date().toISOString(),
+        status: "ended",
+        clock_out_method: method,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("status", "active")
+      .or(`employee_id.in.(${list}),driver_id.in.(${list})`)
+      .select();
+    if (error) throw error;
+    return data || [];
+  },
+
   async logout(returnTo) {
+    try {
+      await auth.clockOut("logout");
+    } catch (e) {
+      console.error("Clock-out on sign-out failed:", e);
+    }
+    try {
+      localStorage.removeItem("tranziiq_driver_id");
+    } catch {
+      /* ignore */
+    }
     await supabase.auth.signOut();
     if (returnTo) window.location.href = returnTo;
   },

@@ -479,7 +479,7 @@ ${RISK_STATUS[r.status]?.color}`}
                   {loading && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center  text-muted-foreground py-8"
                       >
                         Loading…
@@ -489,7 +489,7 @@ ${RISK_STATUS[r.status]?.color}`}
                   {!loading && vfls.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center text-muted-foreground py-8"
                       >
                         No VFLs recorded yet.
@@ -567,7 +567,7 @@ ${v.status === "open" ? "bg-amber-100 text-amber-700" : "bg-emerald-100  text-em
                   {loading && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center  text-muted-foreground py-8"
                       >
                         Loading…
@@ -577,7 +577,7 @@ ${v.status === "open" ? "bg-amber-100 text-amber-700" : "bg-emerald-100  text-em
                   {!loading && talks.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center text-muted-foreground py-8"
                       >
                         No talks planned yet.
@@ -645,6 +645,7 @@ ${TBT_STATUS[t.status]?.color}`}
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Employee</TableHead>
+                    <TableHead>Department</TableHead>
                     <TableHead>Truck</TableHead>
                     <TableHead>Risk Level</TableHead>
                     <TableHead>Hazards</TableHead>
@@ -656,7 +657,7 @@ ${TBT_STATUS[t.status]?.color}`}
                   {loading && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center  text-muted-foreground py-8"
                       >
                         Loading…
@@ -666,7 +667,7 @@ ${TBT_STATUS[t.status]?.color}`}
                   {!loading && assessments.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center text-muted-foreground py-8"
                       >
                         No risk assessments submitted yet.
@@ -685,6 +686,14 @@ ${TBT_STATUS[t.status]?.color}`}
                       </TableCell>
                       <TableCell className="text-sm font-medium">
                         {a.driver_name}
+                        {a.job_title && (
+                          <span className="block text-[10px] font-normal text-muted-foreground">
+                            {a.job_title}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {a.department || "—"}
                       </TableCell>
                       <TableCell className="text-xs">
                         {a.truck_registration || "—"}
@@ -693,8 +702,16 @@ ${TBT_STATUS[t.status]?.color}`}
                         <Badge className={RISK_RATINGS[a.risk_level]?.color}>
                           {RISK_RATINGS[a.risk_level]?.label}
                         </Badge>
+                        {a.stop_work && (
+                          <Badge variant="destructive" className="ml-1">
+                            Stop work
+                          </Badge>
+                        )}
                       </TableCell>
-                      <TableCell className="max-w-xs text-xs text-muted-foreground  truncate">
+                      <TableCell
+                        className="max-w-xs text-xs text-muted-foreground  truncate"
+                        title={a.hazards_identified || ""}
+                      >
                         {a.hazards_identified || "—"}
                       </TableCell>
                       <TableCell>
@@ -765,7 +782,7 @@ ${TBT_STATUS[t.status]?.color}`}
                   {loading && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center  text-muted-foreground py-8"
                       >
                         Loading…
@@ -775,7 +792,7 @@ ${TBT_STATUS[t.status]?.color}`}
                   {!loading && documents.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center text-muted-foreground py-8"
                       >
                         No documents uploaded yet.

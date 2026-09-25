@@ -60,13 +60,13 @@ const sections = [
             <td>Until you change it or this policy changes</td>
           </tr>
           <tr>
-            <td>tranziiq_driver_id</td>
+            <td>tranziiq_stop_cleared_*</td>
             <td>
-              Remembers which driver profile is linked to a device in the driver
-              app
+              Remembers that a supervisor cleared you to work after a critical
+              shift risk assessment
             </td>
             <td>Strictly necessary, local storage</td>
-            <td>Until you sign out or switch driver</td>
+            <td>For the length of that shift</td>
           </tr>
           <tr>
             <td>sidebar_state</td>

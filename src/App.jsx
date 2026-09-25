@@ -117,15 +117,11 @@ const AuthenticatedApp = () => {
           />
         }
       >
-        <Route element={<Layout />}>
-          <Route
-            path="/"
-            element={
-              <ClockInGate>
-                <Dashboard />
-              </ClockInGate>
-            }
-          />
+        {/* Sign-in = clock-in + shift risk assessment, on every page */}
+        <Route element={<ClockInGate />}>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Dashboard />} />
+          </Route>
         </Route>
       </Route>
       <Route
@@ -135,6 +131,7 @@ const AuthenticatedApp = () => {
           />
         }
       >
+        <Route element={<ClockInGate />}>
         <Route element={<Layout />}>
           <Route path="/fleet" element={<Fleet />} />
           <Route path="/drivers" element={<Drivers />} />
@@ -163,6 +160,7 @@ const AuthenticatedApp = () => {
           <Route path="load" element={<DriverLoadManagement />} />
           <Route path="fuel" element={<DriverFuel />} />
           <Route path="report" element={<DriverBreakdown />} />
+        </Route>
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />

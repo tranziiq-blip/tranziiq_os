@@ -1,245 +1,329 @@
-import { useState, useEffect } from "react";
+// Sign in = clock in. Sign out = clock out.
+//
+// Wraps every signed-in page. For an employee it:
+//   1. finds THEIR OWN employee / driver record from their login (never a
+//      list to choose from — nobody can open another person's profile),
+//   2. opens a shift in HR → Time & Attendance (sign-in time = clock-in),
+//   3. makes them complete the shift risk assessment for their department
+//      before any page opens (saved to SHERQ → Shift Risk Assessments).
+// Signing out closes the shift (see base44.auth.logout).
+//
+// The company owner (admin login with no employee record), clients and
+// clearing agents go straight in.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
-import { base44 } from "@/api/base44Client";
+import { base44, supabase } from "@/api/base44Client";
+import { opsSettings } from "@/lib/opsSettings";
+import { templateFor } from "@/lib/shiftRiskTemplates";
+import { ShiftSessionContext } from "@/lib/shiftSession";
+import ShiftRiskAssessmentForm from "@/components/shift/ShiftRiskAssessmentForm";
+import BrandLogo from "@/components/BrandLogo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
-import RiskAssessmentDialog from "@/components/driver/RiskAssessmentDialog";
-import { Clock, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { UserX, AlertTriangle, LogOut, RefreshCw, OctagonAlert } from "lucide-react";
 
-function isToday(dateStr) {
-  if (!dateStr) return false;
-  const d = new Date(dateStr);
-  const today = new Date();
+const EXEMPT_ROLES = ["client", "clearing_agent"];
+const INACTIVE = ["terminated", "resigned", "suspended"];
+const BLOCKED = /trial has ended|pilot project has ended|account is suspended/i;
+
+// One clock-in per user at a time, even if the gate mounts twice
+// (StrictMode, fast route changes).
+const inflight = new Map();
+
+async function safeGet(entity, id) {
+  if (!id) return null;
+  try {
+    return await base44.entities[entity].get(id);
+  } catch {
+    return null;
+  }
+}
+
+async function findMyEmployee(user) {
+  const linked = await safeGet("Employee", user.linked_employee_id);
+  if (linked) return linked;
+  // Not linked yet: match on the login email only (the person's own email).
+  const email = String(user.email || "").trim().toLowerCase();
+  if (!email) return null;
+  try {
+    const { data } = await supabase
+      .from("employee")
+      .select("*")
+      .ilike("email", email)
+      .limit(2);
+    return data?.length === 1 ? data[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+async function openOrResumeShift({ employee, driver, maxShiftHours }) {
+  const personId = String(driver?.id || employee?.id);
+  const ids = [employee?.id, driver?.id].filter(Boolean).map(String);
+  const list = ids.join(",");
+
+  const { data: open, error } = await supabase
+    .from("shift_log")
+    .select("*")
+    .eq("status", "active")
+    .or(`employee_id.in.(${list}),driver_id.in.(${list})`)
+    .order("clock_in", { ascending: false });
+  if (error) throw error;
+
+  // A shift left open longer than the maximum shift (+2h grace) means the
+  // person never signed out. Close it as a missed clock-out for HR to fix.
+  const staleMs = (Number(maxShiftHours) || 14) * 3600000 + 2 * 3600000;
+  const now = Date.now();
+  let current = null;
+  for (const s of open || []) {
+    const age = now - new Date(s.clock_in).getTime();
+    if (!current && age < staleMs) {
+      current = s;
+      continue;
+    }
+    await base44.entities.ShiftLog.update(s.id, {
+      status: "ended",
+      clock_out: age < staleMs ? new Date().toISOString() : null,
+      clock_out_method: age < staleMs ? "duplicate" : "missed",
+    });
+  }
+  if (current) return current;
+
+  return base44.entities.ShiftLog.create({
+    driver_id: personId,
+    driver_name: employee?.full_name || driver?.full_name,
+    employee_id: employee?.id ? String(employee.id) : null,
+    department: employee?.department || (driver ? "Transport" : null),
+    job_title: employee?.job_title || (driver ? "Driver" : null),
+    truck_id: driver?.assigned_truck_id || null,
+    clock_in: new Date().toISOString(),
+    clock_in_method: "login",
+    status: "active",
+    km_driven: 0,
+    rest_minutes: 0,
+    rests_taken: 0,
+    fatigue_violations: 0,
+  });
+}
+
+// Returns this shift's risk assessment, or null if not done yet
+async function findAssessment(shift, ids) {
+  const { data: byShift } = await supabase
+    .from("shift_risk_assessment")
+    .select("id, stop_work")
+    .eq("shift_log_id", String(shift.id))
+    .limit(1);
+  if (byShift?.length) return byShift[0];
+  // Shifts opened before this update: accept an assessment made after clock-in
+  const { data: legacy } = await supabase
+    .from("shift_risk_assessment")
+    .select("id, stop_work")
+    .in("driver_id", ids)
+    .gte("created_at", shift.clock_in)
+    .limit(1);
+  return legacy?.[0] || null;
+}
+
+const clearedKey = (shiftId) => `tranziiq_stop_cleared_${shiftId}`;
+
+export default function ClockInGate() {
+  const { user, logout } = useAuth();
+  const [phase, setPhase] = useState("loading");
+  // loading | exempt | unlinked | inactive | error | assess | stop | ready
+  const [employee, setEmployee] = useState(null);
+  const [driver, setDriver] = useState(null);
+  const [shift, setShift] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const startedFor = useRef(null);
+
+  const start = useCallback(async () => {
+    if (!user?.id) return;
+    setPhase("loading");
+    setErrorMsg("");
+    if (EXEMPT_ROLES.includes(user.role)) {
+      setPhase("exempt");
+      return;
+    }
+    try {
+      const emp = await findMyEmployee(user);
+      const drv = await safeGet("Driver", user.linked_driver_id || emp?.driver_id);
+      setEmployee(emp);
+      setDriver(drv);
+
+      if (!emp && !drv) {
+        // The owner / admin account with no staff record goes straight in
+        setPhase(user.role === "admin" ? "exempt" : "unlinked");
+        return;
+      }
+      if (emp && INACTIVE.includes(emp.status)) {
+        setPhase("inactive");
+        return;
+      }
+
+      let settings = opsSettings(null);
+      try {
+        const cp = await base44.entities.CompanyProfile.list();
+        settings = opsSettings(cp[0]);
+      } catch {
+        /* defaults */
+      }
+
+      if (!inflight.has(user.id)) {
+        inflight.set(
+          user.id,
+          openOrResumeShift({
+            employee: emp,
+            driver: drv,
+            maxShiftHours: settings.max_shift_hours,
+          }).finally(() => setTimeout(() => inflight.delete(user.id), 3000)),
+        );
+      }
+      const s = await inflight.get(user.id);
+      setShift(s);
+
+      const ids = [emp?.id, drv?.id].filter(Boolean).map(String);
+      const done = await findAssessment(s, ids);
+      if (!done) setPhase("assess");
+      else if (done.stop_work && !localStorage.getItem(clearedKey(s.id))) setPhase("stop");
+      else setPhase("ready");
+    } catch (e) {
+      if (BLOCKED.test(e?.message || "")) {
+        // Company is read-only (trial ended): don't lock staff out
+        setPhase("exempt");
+        return;
+      }
+      setErrorMsg(e?.message || "Could not clock you in");
+      setPhase("error");
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user?.id || startedFor.current === user.id) return;
+    startedFor.current = user.id;
+    start();
+  }, [user?.id, start]);
+
+  const signOut = useCallback(async () => {
+    await logout(true); // clocks out, then signs out
+  }, [logout]);
+
+  const template = useMemo(
+    () => (employee || driver ? templateFor(employee, driver) : null),
+    [employee, driver],
+  );
+
+  const ctx = useMemo(
+    () => ({
+      phase,
+      employee,
+      driver,
+      shift,
+      template,
+      exempt: phase === "exempt",
+      refresh: start,
+      signOut,
+    }),
+    [phase, employee, driver, shift, template, start, signOut],
+  );
+
+  let content;
+  if (phase === "ready" || phase === "exempt") {
+    content = <Outlet />;
+  } else if (phase === "assess") {
+    content = (
+      <ShiftRiskAssessmentForm
+        employee={employee}
+        driver={driver}
+        shift={shift}
+        template={template}
+        onSignOut={signOut}
+        onSubmitted={(rec) => setPhase(rec.stop_work ? "stop" : "ready")}
+      />
+    );
+  } else {
+    content = (
+      <GateScreen
+        phase={phase}
+        errorMsg={errorMsg}
+        employee={employee}
+        onRetry={start}
+        onContinue={() => {
+          if (shift) localStorage.setItem(clearedKey(shift.id), new Date().toISOString());
+          setPhase("ready");
+        }}
+        onSignOut={signOut}
+      />
+    );
+  }
+
   return (
-    d.getDate() === today.getDate() &&
-    d.getMonth() === today.getMonth() &&
-    d.getFullYear() === today.getFullYear()
+    <ShiftSessionContext.Provider value={ctx}>{content}</ShiftSessionContext.Provider>
   );
 }
 
-export default function ClockInGate({ children }) {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [phase, setPhase] = useState("loading"); // loading | gate | done
-  const [employees, setEmployees] = useState([]);
-  const [employee, setEmployee] = useState(null);
-  const [selectedId, setSelectedId] = useState("");
-  const [activeShift, setActiveShift] = useState(null);
-  const [riskDone, setRiskDone] = useState(false);
-  const [riskOpen, setRiskOpen] = useState(false);
-  const [clockingIn, setClockingIn] = useState(false);
+function GateScreen({ phase, errorMsg, employee, onRetry, onContinue, onSignOut }) {
+  if (phase === "loading") {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-brand-teal" />
+        <p className="text-sm text-muted-foreground">Clocking you in…</p>
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    if (!user?.id) return;
-    // Only drivers clock in and do the shift risk assessment. The owner and
-    // office staff (finance, HR, dispatch, workshop admin) go straight in.
-    const isDriver = (user.module_access || []).includes("driver_mobile");
-    if (["client", "clearing_agent", "admin"].includes(user.role) || !isDriver) {
-      setPhase("done");
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const empList = await base44.entities.Employee.filter({
-          status: "active",
-        });
-        if (cancelled) return;
-        setEmployees(empList);
-        if (empList.length === 0) {
-          setPhase("done");
-          return;
-        }
-        let me = empList.find((e) => e.id === user.linked_employee_id);
-        if (!me)
-          me = empList.find(
-            (e) =>
-              (e.email || "").toLowerCase() ===
-              (user.email || "").toLowerCase(),
-          );
-        if (me) {
-          setEmployee(me);
-          const shifts = await base44.entities.ShiftLog.filter(
-            { driver_id: me.id, status: "active" },
-            "-clock_in",
-            1,
-          );
-          const shift = shifts[0] || null;
-          if (cancelled) return;
-          setActiveShift(shift);
-          if (shift) {
-            const risks = await base44.entities.ShiftRiskAssessment.filter(
-              { driver_id: me.id },
-              "-created_date",
-              1,
-            );
-            if (cancelled) return;
-            const rd = !!(risks[0] && isToday(risks[0].created_date));
-            setRiskDone(rd);
-            setPhase(rd ? "done" : "gate");
-          } else {
-            setRiskDone(false);
-            setPhase("gate");
-          }
-        } else {
-          setPhase("gate");
-        }
-      } catch {
-        if (!cancelled) setPhase("done");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
-
-  const clockIn = async () => {
-    const target = employee || employees.find((e) => e.id === selectedId);
-    if (!target) return;
-    setClockingIn(true);
-    try {
-      if (!employee) {
-        setEmployee(target);
-        try {
-          await base44.auth.updateMe({ linked_employee_id: target.id });
-        } catch {
-          /* non-critical */
-        }
-      }
-      const shift = await base44.entities.ShiftLog.create({
-        driver_id: target.id,
-        driver_name: target.full_name,
-        clock_in: new Date().toISOString(),
-        status: "active",
-        km_driven: 0,
-        rest_minutes: 0,
-        rests_taken: 0,
-        fatigue_violations: 0,
-      });
-      setActiveShift(shift);
-      setRiskOpen(true);
-      toast({
-        title: "Clocked in",
-        description:
-          "Complete your shift risk  assessment to open your workspace",
-      });
-    } catch (e) {
-      toast({
-        title: "Error clocking in",
-        description: e.message,
-        variant: "destructive",
-      });
-    } finally {
-      setClockingIn(false);
-    }
+  const screens = {
+    unlinked: {
+      icon: UserX,
+      tone: "text-amber-600",
+      title: "Your login is not linked to an employee profile",
+      body: "For security you can only open your own profile. Ask your administrator to link your login to your employee record in Admin → Users, then sign in again.",
+    },
+    inactive: {
+      icon: UserX,
+      tone: "text-rose-600",
+      title: "Your employee profile is not active",
+      body: `Your HR status is "${employee?.status}". Please speak to HR before starting work.`,
+    },
+    error: {
+      icon: AlertTriangle,
+      tone: "text-rose-600",
+      title: "We couldn't clock you in",
+      body: errorMsg,
+    },
+    stop: {
+      icon: OctagonAlert,
+      tone: "text-rose-600",
+      title: "STOP — do not start work",
+      body: "Your shift risk assessment is CRITICAL and has been recorded in SHERQ. Report to your supervisor now. Only continue once your supervisor has cleared you to work.",
+    },
   };
-
-  if (phase !== "gate") return children;
-
-  const needsSelection = !employee;
+  const s = screens[phase] || screens.error;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
       <div className="flex min-h-full items-center justify-center p-4">
         <Card className="w-full max-w-md border-border/60 shadow-xl">
-          <CardContent className="space-y-4 p-6">
-            <div className="text-center">
-              <Clock className="mx-auto text-brand-teal" size={36} />
-              <h1 className="mt-2 font-display text-xl font-bold text-brand-navy">
-                Start Your Shift
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Clock in and complete your shift risk assessment to open your
-                workspace
-              </p>
+          <CardContent className="space-y-4 p-6 text-center">
+            <BrandLogo size={32} withText />
+            <s.icon className={`mx-auto ${s.tone}`} size={40} />
+            <h1 className="font-display text-lg font-bold text-brand-navy">{s.title}</h1>
+            <p className="text-sm text-muted-foreground">{s.body}</p>
+            <div className="grid gap-2">
+              {phase === "error" && (
+                <Button onClick={onRetry} className="gap-2 bg-brand-navy hover:bg-brand-navy/90">
+                  <RefreshCw size={16} /> Try again
+                </Button>
+              )}
+              {phase === "stop" && (
+                <Button onClick={onContinue} className="bg-brand-navy hover:bg-brand-navy/90">
+                  My supervisor has cleared me — continue
+                </Button>
+              )}
+              <Button variant="outline" onClick={onSignOut} className="gap-2">
+                <LogOut size={16} /> {phase === "unlinked" || phase === "inactive" ? "Sign out" : "Clock out & sign out"}
+              </Button>
             </div>
-
-            {needsSelection ? (
-              <div className="grid gap-2">
-                <Label>Select Your Profile</Label>
-                <Select value={selectedId} onValueChange={setSelectedId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose your name…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.full_name} — {e.job_title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <div className="rounded-lg bg-muted/50 p-3 text-center">
-                <p className="text-sm font-semibold text-brand-navy">
-                  {employee.full_name}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {employee.job_title} ·{employee.department}
-                </p>
-              </div>
-            )}
-
-            {activeShift && (
-              <div className="flex items-center justify-between rounded-lg border  border-emerald-200 bg-emerald-50/50 px-3 py-2 text-sm">
-                <span className="flex items-center gap-1.5 text-emerald-700">
-                  <CheckCircle2 size={14} /> Clocked in
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(activeShift.clock_in).toLocaleTimeString("en-ZA", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
-            )}
-
-            {!activeShift ? (
-              <Button
-                onClick={clockIn}
-                disabled={clockingIn || (needsSelection && !selectedId)}
-                className="w-full gap-2 bg-brand-navy hover:bg-brand-navy/90"
-              >
-                <Clock size={16} /> {clockingIn ? "Clocking in…" : "Clock In"}
-              </Button>
-            ) : !riskDone ? (
-              <Button
-                onClick={() => setRiskOpen(true)}
-                className="w-full gap-2  bg-brand-teal hover:bg-brand-teal/90"
-              >
-                <ShieldAlert size={16} /> Complete Shift Risk Assessment
-              </Button>
-            ) : null}
-
-            <p className="text-center text-[10px] text-muted-foreground">
-              All clock-ins and clock-outs sync automatically to HR → Time &amp;
-              Attendance.
-            </p>
-
-            <RiskAssessmentDialog
-              open={riskOpen}
-              onOpenChange={setRiskOpen}
-              driver={
-                employee
-                  ? { id: employee.id, full_name: employee.full_name }
-                  : null
-              }
-              truck={null}
-              onComplete={() => {
-                setRiskDone(true);
-                setPhase("done");
-              }}
-            />
           </CardContent>
         </Card>
       </div>

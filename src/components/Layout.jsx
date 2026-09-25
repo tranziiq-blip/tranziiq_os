@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
+import { useShiftSession } from "@/lib/shiftSession";
 import BrandLogo from "./BrandLogo";
 import {
   LayoutDashboard,
@@ -116,7 +117,16 @@ export default function Layout() {
   const toggleGroup = (to) =>
     setManualExpanded((prev) => ({ ...prev, [to]: !prev[to] }));
 
+  // Signing out clocks the person out (closes their shift in HR).
+  const { shift } = useShiftSession();
   const handleLogout = async () => {
+    if (
+      shift &&
+      !window.confirm(
+        "Sign out now? This clocks you out and records your clock-out time in HR → Time & Attendance.",
+      )
+    )
+      return;
     await base44.auth.logout();
     navigate("/login");
   };

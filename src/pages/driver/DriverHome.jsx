@@ -15,7 +15,7 @@ import {
   Truck as TruckIcon,
   ChevronRight,
 } from "lucide-react";
-import RiskAssessmentDialog from "@/components/driver/RiskAssessmentDialog";
+import { useShiftSession } from "@/lib/shiftSession";
 import GpsTracker from "@/components/driver/GpsTracker";
 import { opsSettings } from "@/lib/opsSettings";
 
@@ -44,6 +44,9 @@ function isToday(dateStr) {
 
 export default function DriverHome() {
   const { driver } = useOutletContext();
+  // Signing in clocked this driver in and the shift risk assessment was
+  // completed before this page could open.
+  const { shift: sessionShift, signOut } = useShiftSession();
   const navigate = useNavigate();
   const location = useLocation();
   // Fatigue rules come from the company's Cost & Risk Settings
@@ -58,31 +61,24 @@ export default function DriverHome() {
   const [shift, setShift] = useState(null);
   const [activeLoad, setActiveLoad] = useState(null);
   const [inspectionDone, setInspectionDone] = useState(false);
-  const [riskDone, setRiskDone] = useState(false);
+  const riskDone = true;
   const [truck, setTruck] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
-  const [riskOpen, setRiskOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const loadData = async () => {
     if (!driver) return;
-    const [shifts, loads, inspections, risks] = await Promise.all([
-      base44.entities.ShiftLog.filter(
-        { driver_id: driver.id, status: "active" },
-        "-clock_in",
-        1,
-      ),
+    const [shifts, loads, inspections] = await Promise.all([
+      sessionShift?.id
+        ? base44.entities.ShiftLog.filter({ id: sessionShift.id, status: "active" })
+        : Promise.resolve([]),
       base44.entities.Load.filter(
         { driver_id: driver.id },
         "-created_date",
         10,
       ),
       base44.entities.Inspection.filter(
-        { driver_id: driver.id },
-        "-created_date",
-        1,
-      ),
-      base44.entities.ShiftRiskAssessment.filter(
         { driver_id: driver.id },
         "-created_date",
         1,
@@ -98,8 +94,6 @@ export default function DriverHome() {
         isToday(inspections[0].created_date) &&
         inspections[0].status === "pass",
     );
-    const riskAlreadyDone = !!(risks[0] && isToday(risks[0].created_date));
-    setRiskDone(riskAlreadyDone);
     // Coming straight from a passed inspection: use that truck
     const handoff = location.state?.openRisk ? location.state : null;
     const truckIdToLoad = handoff?.truckId || driver.assigned_truck_id;
@@ -113,9 +107,8 @@ export default function DriverHome() {
     }
     setLoading(false);
     if (handoff) {
-      // Clear the hand-off so a refresh doesn't reopen it
+      // Clear the hand-off so a refresh doesn't reuse it
       navigate(location.pathname, { replace: true, state: null });
-      if (!riskAlreadyDone) setRiskOpen(true);
     }
   };
 
@@ -123,27 +116,12 @@ export default function DriverHome() {
     setLoading(true);
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [driver?.id]);
+  }, [driver?.id, sessionShift?.id]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-
-  const clockIn = async () => {
-    await base44.entities.ShiftLog.create({
-      driver_id: driver.id,
-      driver_name: driver.full_name,
-      truck_id: driver.assigned_truck_id || "",
-      clock_in: new Date().toISOString(),
-      status: "active",
-      km_driven: 0,
-      rest_minutes: 0,
-      rests_taken: 0,
-      fatigue_violations: 0,
-    });
-    loadData();
-  };
 
   const takeRest = async () => {
     if (!shift) return;
@@ -154,19 +132,22 @@ export default function DriverHome() {
     loadData();
   };
 
+  // Clocking out = signing out (the shift is closed on sign-out)
   const clockOut = async () => {
-    if (!shift) return;
-    await base44.entities.ShiftLog.update(shift.id, {
-      clock_out: new Date().toISOString(),
-      status: "ended",
-    });
-    setShift(null);
+    if (
+      !window.confirm(
+        "Clock out now? This ends your shift, records your clock-out time in HR and signs you out.",
+      )
+    )
+      return;
+    setSigningOut(true);
+    await signOut();
   };
 
   if (!driver)
     return (
       <p className="text-center text-muted-foreground  py-12">
-        Select a driver…
+        No driver profile is linked to your login.
       </p>
     );
   if (loading)
@@ -252,13 +233,14 @@ rounded-full ${done ? "bg-emerald-500 text-white" : "bg-muted  text-muted-foregr
             <div className="text-center">
               <Clock className="mx-auto text-brand-navy" size={32} />
               <p className="mt-2 text-sm text-muted-foreground">
-                You're clocked out
+                Your shift has been closed. Sign out and sign in again to
+                clock in for a new shift.
               </p>{" "}
               <Button
-                onClick={clockIn}
+                onClick={() => signOut()}
                 className="mt-3 w-full gap-2 bg-brand-navy  hover:bg-brand-navy/90"
               >
-                <Clock size={16} /> Clock In
+                <Clock size={16} /> Sign out
               </Button>{" "}
             </div>
           ) : (
@@ -344,9 +326,10 @@ rounded-full ${done ? "bg-emerald-500 text-white" : "bg-muted  text-muted-foregr
               <Button
                 onClick={clockOut}
                 variant="outline"
+                disabled={signingOut}
                 className="mt-4 w-full"
               >
-                Clock Out
+                {signingOut ? "Clocking out…" : "Clock Out & Sign Out"}
               </Button>{" "}
             </>
           )}{" "}
@@ -361,6 +344,16 @@ rounded-full ${done ? "bg-emerald-500 text-white" : "bg-muted  text-muted-foregr
           </p>{" "}
           <StepCard
             step={1}
+            icon={ShieldAlert}
+            title="Shift Risk Assessment"
+            subtitle="Completed at clock-in"
+            done={riskDone}
+            actionLabel=""
+            onAction={() => {}}
+            disabled={false}
+          />{" "}
+          <StepCard
+            step={2}
             icon={ClipboardCheck}
             title="Truck Inspection"
             subtitle={
@@ -374,16 +367,6 @@ rounded-full ${done ? "bg-emerald-500 text-white" : "bg-muted  text-muted-foregr
             disabled={false}
           />{" "}
           <StepCard
-            step={2}
-            icon={ShieldAlert}
-            title="Shift Risk Assessment"
-            subtitle={riskDone ? "Completed" : "Assess route & conditions"}
-            done={riskDone}
-            actionLabel="Assess"
-            onAction={() => setRiskOpen(true)}
-            disabled={!inspectionDone}
-          />{" "}
-          <StepCard
             step={3}
             icon={Package}
             title="Accept Load"
@@ -391,7 +374,7 @@ rounded-full ${done ? "bg-emerald-500 text-white" : "bg-muted  text-muted-foregr
             done={!!activeLoad}
             actionLabel="View"
             onAction={() => navigate("/driver/load")}
-            disabled={!riskDone}
+            disabled={!inspectionDone}
           />{" "}
           {activeLoad && (
             <StepCard
@@ -407,13 +390,6 @@ rounded-full ${done ? "bg-emerald-500 text-white" : "bg-muted  text-muted-foregr
           )}{" "}
         </div>
       )}{" "}
-      <RiskAssessmentDialog
-        open={riskOpen}
-        onOpenChange={setRiskOpen}
-        driver={driver}
-        truck={truck}
-        onComplete={loadData}
-      />{" "}
       {shift && (
         <GpsTracker shift={shift} driver={driver} onUpdated={loadData} />
       )}{" "}
