@@ -559,6 +559,11 @@ const users = {
     });
     if (error) {
       let msg = error.message;
+      if (error.name === "FunctionsFetchError" || /Failed to send a request/i.test(msg)) {
+        throw new Error(
+          "The invitation email service couldn't be reached. In Supabase, check the inviteStaff function is deployed under that exact name, with Verify JWT turned off.",
+        );
+      }
       try {
         const body = await error.context?.json?.();
         if (body?.error) msg = body.error;
