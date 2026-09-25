@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { base44, supabase, clearPasswordRecovery } from "@/api/base44Client";
+import { base44, supabase, clearPasswordRecovery, passwordSetupMode } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,11 +17,14 @@ function linkError() {
   const code = params.get("error_code") || params.get("error");
   if (!code) return null;
   return code === "otp_expired"
-    ? "This reset link has expired or has already been used."
+    ? "This link has expired or has already been used."
     : params.get("error_description")?.replace(/\+/g, " ") || "This reset link is not valid.";
 }
 
-export default function ResetPassword() {
+export default function ResetPassword({ mode }) {
+  // Newly invited people create their first password here
+  const isInvite = mode === "invite" || passwordSetupMode() === "invite";
+  const [who, setWho] = useState({ name: "", company: "", driver: false });
   const [stage, setStage] = useState("checking"); // checking | form | invalid | done
   const [invalidReason, setInvalidReason] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -42,6 +45,21 @@ export default function ResetPassword() {
       if (settled) return;
       if (session) {
         settled = true;
+        const meta = session.user?.user_metadata || {};
+        setWho((w) => ({ ...w, name: meta.full_name || "", company: meta.company_name || "" }));
+        supabase
+          .from("profiles")
+          .select("full_name, module_access, organization:org_id(name)")
+          .eq("id", session.user.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (!data) return;
+            setWho({
+              name: data.full_name || meta.full_name || "",
+              company: data.organization?.name || meta.company_name || "",
+              driver: (data.module_access || []).includes("driver_mobile"),
+            });
+          });
         setStage("form");
       }
     };
@@ -76,8 +94,10 @@ export default function ResetPassword() {
     setLoading(true);
     try {
       await base44.auth.resetPassword(newPassword);
+      // Account is now active (clears the "invited" status for the admin)
+      await base44.auth.updateMe({ invite_status: "active" }).catch(() => {});
       setStage("done");
-      setTimeout(() => window.location.replace("/"), 1500);
+      setTimeout(() => window.location.replace(who.driver ? "/driver" : "/"), 1500);
     } catch (err) {
       setError(
         /different from the old/i.test(err.message || "")
@@ -117,8 +137,9 @@ export default function ResetPassword() {
         }
       >
         <p className="text-center text-sm text-foreground">
-          Reset links work once and expire after a short time. Request a new
-          one and open it on this device.
+          {isInvite
+            ? "Invitation links work once and expire after 24 hours. Ask your administrator to resend your invitation."
+            : "Reset links work once and expire after a short time. Request a new one and open it on this device."}
         </p>
       </AuthLayout>
     );
@@ -126,7 +147,11 @@ export default function ResetPassword() {
 
   if (stage === "done") {
     return (
-      <AuthLayout icon={CheckCircle2} title="Password updated" subtitle="Taking you to your dashboard…">
+      <AuthLayout
+        icon={CheckCircle2}
+        title={isInvite ? "You're all set" : "Password updated"}
+        subtitle={isInvite ? "Opening your workspace…" : "Taking you to your dashboard…"}
+      >
         <p className="text-center text-sm text-muted-foreground">
           Any other devices signed in to this account have been signed out.
         </p>
@@ -137,8 +162,16 @@ export default function ResetPassword() {
   return (
     <AuthLayout
       icon={Lock}
-      title="Set a new password"
-      subtitle="You need to choose a new password before continuing"
+      title={
+        isInvite
+          ? `Welcome${who.name ? `, ${who.name.split(" ")[0]}` : ""}`
+          : "Set a new password"
+      }
+      subtitle={
+        isInvite
+          ? `${who.company ? `${who.company} has set up your TranziIQ account. ` : ""}Create a password to finish.`
+          : "You need to choose a new password before continuing"
+      }
     >
       {error && (
         <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -185,7 +218,7 @@ export default function ResetPassword() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…
             </>
           ) : (
-            "Save new password"
+            isInvite ? "Create password and continue" : "Save new password"
           )}
         </Button>
         <button

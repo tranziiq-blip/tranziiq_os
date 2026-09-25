@@ -15,7 +15,7 @@ import ScrollToTop from "./components/ScrollToTop";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import FileOpen from "@/pages/FileOpen";
 import GlobalErrorNotices from "@/components/GlobalErrorNotices";
-import { isPasswordRecovery } from "@/api/base44Client";
+import { isPasswordRecovery, passwordSetupMode } from "@/api/base44Client";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -92,9 +92,9 @@ const AuthenticatedApp = () => {
   // password is saved (or the user cancels and signs out).
   if (
     isPasswordRecovery() &&
-    !["/reset-password", "/forgot-password", "/login"].includes(location.pathname)
+    !["/reset-password", "/accept-invite", "/forgot-password", "/login"].includes(location.pathname)
   ) {
-    return <Navigate to="/reset-password" replace />;
+    return <Navigate to={passwordSetupMode() === "invite" ? "/accept-invite" : "/reset-password"} replace />;
   }
 
   return (
@@ -103,6 +103,7 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/accept-invite" element={<ResetPassword mode="invite" />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/cookies" element={<CookiePolicy />} />

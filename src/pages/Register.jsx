@@ -237,8 +237,8 @@ export default function Register() {
             className="h-12"
           />
           <p className="text-xs text-muted-foreground">
-            Joining a colleague's company? Leave this blank and sign up with the
-            email they invited.
+            Setting up a new company. Joining your employer's company instead?
+            Use the link in the invitation email they sent you.
           </p>
         </div>
         <div className="space-y-2">

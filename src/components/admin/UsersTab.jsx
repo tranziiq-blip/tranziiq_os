@@ -28,6 +28,8 @@ export default function UsersTab() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteDetails, setInviteDetails] = useState({ full_name: "", phone: "", job_title: "", department: "" });
+  const setDetail = (k, v) => setInviteDetails((d) => ({ ...d, [k]: v }));
   const [inviteRole, setInviteRole] = useState("user");
   const [inviteAccess, setInviteAccess] = useState([]);
   const [inviting, setInviting] = useState(false);
@@ -90,12 +92,13 @@ export default function UsersTab() {
   };
 
   const handleInvite = async () => {
-    if (!inviteEmail) {
-      toast({ title: "Email required", variant: "destructive" });
+    const email = inviteEmail.trim();
+    if (!email || !inviteDetails.full_name.trim()) {
+      toast({ title: "Name and email are required", variant: "destructive" });
       return;
     }
     if (inviteRole === "client" && !inviteClientId) {
-      toast({ title: "Select a  client to link", variant: "destructive" });
+      toast({ title: "Select a client to link", variant: "destructive" });
       return;
     }
     setInviting(true);
@@ -104,33 +107,86 @@ export default function UsersTab() {
         inviteRole === "client"
           ? directoryClients.find((c) => c.id === inviteClientId)
           : null;
-      await base44.users.inviteUser(inviteEmail, inviteRole, {
-        module_access: inviteAccess,
-        linked_client_name: client?.name,
-        linked_directory_id: client?.id,
-      });
+      // Staff get their HR record (and driver record) created up front,
+      // so everything is ready when they first sign in.
+      let employeeId = null;
+      let driverId = null;
+      if (inviteRole === "user" || inviteRole === "admin") {
+        const isDriver = inviteAccess.includes("driver_mobile");
+        if (isDriver) {
+          const drv = await base44.entities.Driver.create({
+            full_name: inviteDetails.full_name.trim(),
+            phone: inviteDetails.phone || null,
+            status: "active",
+          });
+          driverId = drv.id;
+        }
+        const emp = await base44.entities.Employee.create({
+          full_name: inviteDetails.full_name.trim(),
+          email,
+          phone: inviteDetails.phone || null,
+          job_title: inviteDetails.job_title || (isDriver ? "Driver" : null),
+          department: inviteDetails.department || null,
+          status: "active",
+          start_date: new Date().toISOString().slice(0, 10),
+          driver_id: driverId,
+        });
+        employeeId = emp.id;
+      }
+      let emailed = false;
+      let emailError = "";
+      try {
+        const res = await base44.users.inviteUser(email, inviteRole, {
+          ...inviteDetails,
+          full_name: inviteDetails.full_name.trim(),
+          module_access: inviteAccess,
+          linked_client_name: client?.name,
+          linked_directory_id: client?.id,
+          linked_employee_id: employeeId,
+          linked_driver_id: driverId,
+        });
+        emailed = res.email_sent;
+      } catch (e) {
+        emailError = e.message;
+        if (/already has an account/.test(e.message)) throw e;
+      }
       if (client) {
         await base44.entities.BusinessDirectory.update(client.id, {
-          portal_access_email: inviteEmail,
+          portal_access_email: email,
           portal_access_enabled: true,
         }).catch(() => {});
       }
-      toast({
-        title: "Invitation created",
-        description: `Ask ${inviteEmail} to sign up at ${window.location.origin}/register using this email. They will join your company automatically.`,
-      });
+      toast(
+        emailed
+          ? {
+              title: "Invitation sent",
+              description: `${inviteDetails.full_name.trim()} will get an email at ${email} with a link to create their password.`,
+            }
+          : {
+              title: "Invitation saved, email not sent",
+              description: `${emailError || "The email could not be sent."} You can resend it from the pending list.`,
+              variant: "destructive",
+            },
+      );
       setInviteEmail("");
+      setInviteDetails({ full_name: "", phone: "", job_title: "", department: "" });
       setInviteAccess([]);
       setInviteClientId("");
       await refresh();
     } catch (e) {
-      toast({
-        title: "Failed to invite",
-        description: e.message,
-        variant: "destructive",
-      });
+      toast({ title: "Failed to invite", description: e.message, variant: "destructive" });
     } finally {
       setInviting(false);
+    }
+  };
+
+  const resend = async (email) => {
+    try {
+      await base44.users.resendInvite(email);
+      toast({ title: "Invitation re-sent", description: `A new link was emailed to ${email}.` });
+      loadInvites();
+    } catch (e) {
+      toast({ title: "Could not resend", description: e.message, variant: "destructive" });
     }
   };
 
@@ -179,9 +235,31 @@ export default function UsersTab() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-3 grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Full name</Label>
+              <Input value={inviteDetails.full_name} onChange={(e) => setDetail("full_name", e.target.value)} placeholder="e.g. Pako Raphoto" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Cellphone</Label>
+              <Input type="tel" value={inviteDetails.phone} onChange={(e) => setDetail("phone", e.target.value)} placeholder="e.g. 082 123 4567" />
+            </div>
+            {(inviteRole === "user" || inviteRole === "admin") && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Job title</Label>
+                  <Input value={inviteDetails.job_title} onChange={(e) => setDetail("job_title", e.target.value)} placeholder="e.g. Dispatcher, Driver, Finance Officer" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Department</Label>
+                  <Input value={inviteDetails.department} onChange={(e) => setDetail("department", e.target.value)} placeholder="e.g. Transport, Finance" />
+                </div>
+              </>
+            )}
+          </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-1.5">
-              <Label>Email Address</Label>
+              <Label>Email address</Label>
               <Input
                 type="email"
                 value={inviteEmail}
@@ -210,7 +288,7 @@ export default function UsersTab() {
               disabled={inviting}
               className="gap-2"
             >
-              <UserPlus size={16} /> {inviting ? "Saving…" : "Invite"}
+              <UserPlus size={16} /> {inviting ? "Sending…" : "Send invitation"}
             </Button>
           </div>
 
@@ -243,8 +321,8 @@ export default function UsersTab() {
               <div className="flex items-center gap-2 mb-3">
                 <Lock size={14} className="text-muted-foreground" />
                 <p className="text-xs font-medium  text-muted-foreground">
-                  Module Access — select what this user can see and do. Leave
-                  empty for full access.
+                  Module access: tick what this person can use. Tick Driver Mobile for drivers.
+                  Finance and Admin must be ticked to be given.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -276,8 +354,7 @@ export default function UsersTab() {
               Pending Invitations ({invites.length})
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              Each person signs up at {window.location.origin}/register with the
-              invited email and joins your company automatically.
+              These invitations are saved but the email hasn't gone out yet. Tap Send email to try again.
             </p>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -293,13 +370,14 @@ export default function UsersTab() {
                     {new Date(inv.created_at).toLocaleDateString("en-ZA")}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => cancelInvite(inv.id)}
-                >
-                  Cancel
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => resend(inv.email)}>
+                    Send email
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => cancelInvite(inv.id)}>
+                    Cancel
+                  </Button>
+                </div>
               </div>
             ))}
           </CardContent>
@@ -341,7 +419,19 @@ export default function UsersTab() {
                   <td className="px-4 py-3 font-medium text-brand-navy">
                     {u.full_name || "—"}
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {u.email}
+                    {u.invite_status === "invited" && (
+                      <span className="mt-1 flex items-center gap-2">
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                          Invited · not activated
+                        </span>
+                        <button onClick={() => resend(u.email)} className="text-[11px] font-medium text-brand-blue hover:underline">
+                          Resend email
+                        </button>
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     {u.role === "admin" ? (
                       <Badge className="bg-brand-navy text-white gap-1">

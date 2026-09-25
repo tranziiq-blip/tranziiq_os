@@ -43,12 +43,17 @@ const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
 const RECOVERY_KEY = "tranziiq_password_recovery";
 if (typeof window !== "undefined") {
   const where = window.location.hash + window.location.search;
-  if (/type=recovery|[?&]recovery=1/.test(where) && !/error=/.test(where)) {
-    localStorage.setItem(RECOVERY_KEY, "1");
+  if (/type=invite/.test(where) && !/error=/.test(where)) {
+    localStorage.setItem(RECOVERY_KEY, "invite");
+  } else if (/type=recovery|[?&]recovery=1/.test(where) && !/error=/.test(where)) {
+    localStorage.setItem(RECOVERY_KEY, /[?&]welcome=1/.test(where) ? "invite" : "1");
   }
 }
 export const isPasswordRecovery = () =>
-  typeof window !== "undefined" && localStorage.getItem(RECOVERY_KEY) === "1";
+  typeof window !== "undefined" && !!localStorage.getItem(RECOVERY_KEY);
+// "invite" when a newly invited person must create their first password
+export const passwordSetupMode = () =>
+  typeof window !== "undefined" ? localStorage.getItem(RECOVERY_KEY) : null;
 export const clearPasswordRecovery = () => localStorage.removeItem(RECOVERY_KEY);
 
 export const supabase = createClient(
@@ -59,7 +64,7 @@ export const supabase = createClient(
 supabase.auth.onAuthStateChange((event) => {
   if (event === "PASSWORD_RECOVERY") {
     localStorage.setItem(RECOVERY_KEY, "1");
-    if (window.location.pathname !== "/reset-password") {
+    if (!["/reset-password", "/accept-invite"].includes(window.location.pathname)) {
       window.location.replace("/reset-password");
     }
   }
@@ -515,6 +520,8 @@ const functionsApi = {
 // Staff invitations. The invited person signs up with the same email and is
 // placed in the inviting company automatically (database trigger).
 const users = {
+  // Saves the invitation with the person's details, then emails them a
+  // secure link (edge function inviteStaff) to create their password.
   async inviteUser(email, role = "user", extra = {}) {
     const clean = String(email || "").trim().toLowerCase();
     if (!clean) throw new Error("Email required");
@@ -529,14 +536,49 @@ const users = {
       .insert({
         email: clean,
         role,
+        full_name: extra.full_name || null,
+        phone: extra.phone || null,
+        job_title: extra.job_title || null,
         module_access: extra.module_access?.length ? extra.module_access : null,
         linked_client_name: extra.linked_client_name || null,
         linked_directory_id: extra.linked_directory_id || null,
+        linked_employee_id: extra.linked_employee_id || null,
+        linked_driver_id: extra.linked_driver_id || null,
       })
       .select()
       .single();
     if (error) throw error;
-    return data;
+    const sent = await users.sendInviteEmail(data.id);
+    return { ...data, email_sent: sent };
+  },
+  // Returns true when the email went out; false if the invite is saved
+  // but sending failed (the reason is thrown for the caller to show).
+  async sendInviteEmail(inviteId) {
+    const { data, error } = await supabase.functions.invoke("inviteStaff", {
+      body: { invite_id: inviteId, redirect_to: window.location.origin },
+    });
+    if (error) {
+      let msg = error.message;
+      try {
+        const body = await error.context?.json?.();
+        if (body?.error) msg = body.error;
+      } catch {
+        /* keep generic message */
+      }
+      throw new Error(msg);
+    }
+    return !!data?.data?.sent;
+  },
+  async resendInvite(email) {
+    const { data, error } = await supabase
+      .from("org_invites")
+      .select("id")
+      .ilike("email", String(email).trim())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) throw new Error("Invitation not found");
+    return users.sendInviteEmail(data.id);
   },
   async listInvites() {
     const { data, error } = await supabase
